@@ -85,7 +85,7 @@ export default function RaceDetail() {
             <ShareButton
               title={race.title}
               text={candidatesWithPredictions.length > 0 
-                ? `🗳️ ${race.title}: ${candidatesWithPredictions[0]?.candidate.name} leads with ${candidatesWithPredictions[0]?.prediction?.winProbability.toFixed(1)}% win probability. See the full AI-powered analysis!`
+                ? `🗳️ ${race.title}: ${candidatesWithPredictions[0]?.candidate.name} leads with ${candidatesWithPredictions[0]?.prediction?.winProbability.toFixed(1)}% win probability.`
                 : `🗳️ Check out the ${race.title} election analysis on ElectionPredict!`}
               url={typeof window !== 'undefined' ? window.location.href : ''}
               variant="outline"
