@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery } from "./openai";
-import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party } from "@shared/schema";
+import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, SuggestedMatchup } from "@shared/schema";
+import { insertFeaturedMatchupSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -434,6 +435,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error analyzing natural language query:", error);
       res.status(500).json({ error: "Failed to analyze query" });
+    }
+  });
+
+  app.get("/api/featured-matchups", async (_req, res) => {
+    try {
+      const matchups = await storage.getAllFeaturedMatchups();
+      res.json(matchups);
+    } catch (error) {
+      console.error("Error fetching featured matchups:", error);
+      res.status(500).json({ error: "Failed to fetch featured matchups" });
+    }
+  });
+
+  app.post("/api/races/:id/view", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.incrementRaceViews(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking race view:", error);
+      res.status(500).json({ error: "Failed to track view" });
+    }
+  });
+
+  app.post("/api/admin/featured-matchups", async (req, res) => {
+    try {
+      const validationResult = insertFeaturedMatchupSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: "Invalid matchup data", details: validationResult.error.errors });
+      }
+
+      const matchup = await storage.createFeaturedMatchup(validationResult.data);
+      res.json(matchup);
+    } catch (error) {
+      console.error("Error creating featured matchup:", error);
+      res.status(500).json({ error: "Failed to create featured matchup" });
+    }
+  });
+
+  app.delete("/api/admin/featured-matchups/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteFeaturedMatchup(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting featured matchup:", error);
+      res.status(500).json({ error: "Failed to delete featured matchup" });
+    }
+  });
+
+  app.put("/api/admin/featured-matchups/:id/order", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { order } = req.body;
+
+      if (typeof order !== "number" || order < 0) {
+        return res.status(400).json({ error: "Invalid order value" });
+      }
+
+      await storage.updateFeaturedMatchupOrder(id, order);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating matchup order:", error);
+      res.status(500).json({ error: "Failed to update order" });
+    }
+  });
+
+  app.get("/api/admin/suggested-matchups", async (_req, res) => {
+    try {
+      const races = await storage.getAllRaces();
+      const suggestions: SuggestedMatchup[] = [];
+
+      for (const race of races) {
+        const candidates = await storage.getCandidatesByRace(race.id);
+        const predictions = await storage.getPredictionsByRace(race.id);
+
+        if (candidates.length >= 2 && predictions.length >= 2) {
+          const sortedPredictions = predictions.sort((a, b) => b.winProbability - a.winProbability);
+          const topTwo = sortedPredictions.slice(0, 2);
+          const margin = Math.abs(topTwo[0].winProbability - topTwo[1].winProbability);
+
+          const topTwoCandidates = candidates.filter(c => 
+            topTwo.some(p => p.candidateId === c.id)
+          ).slice(0, 2);
+
+          let reason = "";
+          let score = 0;
+
+          if (margin < 10) {
+            reason = `Extremely close race - only ${margin.toFixed(1)}% margin`;
+            score = 100 - margin;
+          } else if (margin < 20) {
+            reason = `Competitive race - ${margin.toFixed(1)}% margin`;
+            score = 80 - margin;
+          } else if (race.viewCount && race.viewCount > 10) {
+            reason = `High interest - ${race.viewCount} views`;
+            score = Math.min(race.viewCount * 2, 70);
+          } else {
+            const daysUntilElection = Math.floor((new Date(race.electionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            if (daysUntilElection < 90) {
+              reason = `Upcoming election - ${daysUntilElection} days away`;
+              score = Math.max(60 - daysUntilElection / 3, 40);
+            } else {
+              reason = `Notable matchup in ${race.title}`;
+              score = 30;
+            }
+          }
+
+          suggestions.push({
+            race,
+            candidates: topTwoCandidates,
+            predictions: topTwo,
+            reason,
+            score,
+          });
+        }
+      }
+
+      suggestions.sort((a, b) => b.score - a.score);
+      res.json(suggestions.slice(0, 10));
+    } catch (error) {
+      console.error("Error generating suggested matchups:", error);
+      res.status(500).json({ error: "Failed to generate suggestions" });
     }
   });
 

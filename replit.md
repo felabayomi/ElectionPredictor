@@ -36,6 +36,19 @@ Preferred communication style: Simple, everyday language.
 - Custom UI components in `/client/src/components/ui/` following shadcn patterns
 - Feature components in `/client/src/components/` for domain-specific functionality
 
+**Routing Structure:**
+- **Public Routes:**
+  - `/` - Public dashboard showing race results and featured matchups (read-only)
+  - `/race/:id` - Individual race detail pages
+  - `/compare/presidential-primary` - Specific presidential primary comparison
+  - `/compare/ny-senate` - NY Senate race comparison
+
+- **Admin Routes (Protected):**
+  - `/admin/felixdgreat` - Admin dashboard with prediction creation tools
+  - `/admin/felixdgreat/manage` - Featured matchup management interface
+  - `/custom-prediction` - Create custom head-to-head predictions
+  - `/natural-language` - Natural language query interface for AI predictions
+
 ### Backend Architecture
 
 **Server Framework:**
@@ -52,8 +65,16 @@ Preferred communication style: Simple, everyday language.
 **API Endpoints:**
 - `GET /api/races` - Fetch all races with candidates and predictions
 - `GET /api/races/:id` - Fetch specific race details
+- `POST /api/races/:id/view` - Track view count for a race
 - `GET /api/candidates` - Fetch all candidates
 - `POST /api/compare` - Generate AI-powered candidate comparisons
+- `POST /api/custom-prediction` - Generate custom head-to-head predictions
+- `POST /api/natural-language-analysis` - Process natural language queries for predictions
+- `GET /api/featured-matchups` - Fetch all featured matchups (sorted by display order)
+- `POST /api/admin/featured-matchups` - Create a new featured matchup
+- `DELETE /api/admin/featured-matchups/:id` - Delete a featured matchup
+- `PUT /api/admin/featured-matchups/:id/order` - Update matchup display order
+- `GET /api/admin/suggested-matchups` - Get AI-suggested matchups based on race metrics
 
 **Prediction Model:**
 The application uses a weighted factor system combining:

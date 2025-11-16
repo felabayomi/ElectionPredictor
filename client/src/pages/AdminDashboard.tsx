@@ -3,12 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RaceCard } from "@/components/RaceCard";
+import { CandidateCard } from "@/components/CandidateCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info } from "lucide-react";
+import { BarChart3, Info, Zap } from "lucide-react";
 
 interface RaceWithPredictions {
   race: Race;
@@ -16,7 +18,7 @@ interface RaceWithPredictions {
   predictions: Prediction[];
 }
 
-export default function Dashboard() {
+export default function AdminDashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
 
@@ -47,11 +49,21 @@ export default function Dashboard() {
                 <BarChart3 className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">ElectionPredict</h1>
+                <h1 className="text-2xl font-bold">ElectionPredict Admin</h1>
                 <p className="text-sm text-muted-foreground">AI-Powered Election Analysis</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link href="/admin/felixdgreat/manage">
+                <Button variant="outline" size="sm" data-testid="button-manage-matchups">
+                  Manage Featured Matchups
+                </Button>
+              </Link>
+              <Link href="/">
+                <Button variant="outline" size="sm" data-testid="button-public-view">
+                  Public View
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 size="sm"
@@ -68,9 +80,9 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-4xl font-bold mb-2">Election Predictions</h2>
+          <h2 className="text-4xl font-bold mb-2">Election Predictions Dashboard</h2>
           <p className="text-muted-foreground">
-            View comprehensive election analysis and predictions powered by AI
+            Comprehensive analysis of upcoming elections powered by AI and public data
           </p>
         </div>
 
@@ -100,6 +112,46 @@ export default function Dashboard() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card className="bg-primary text-primary-foreground">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Custom Prediction
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-primary-foreground/90 mb-4">
+                Build your own race with custom candidates and compare head-to-head with AI analysis
+              </p>
+              <Link href="/custom-prediction">
+                <Button variant="secondary" className="w-full" data-testid="button-custom-prediction">
+                  Create Custom Race
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-chart-3 text-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Natural Language Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-white/90 mb-4">
+                Ask election questions in plain English and get AI-powered predictions
+              </p>
+              <Link href="/natural-language">
+                <Button variant="secondary" className="w-full" data-testid="button-natural-language">
+                  Ask a Question
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
 
         {!loadingFeatured && featuredMatchups.length > 0 && (
           <Card className="mb-8">
@@ -142,7 +194,7 @@ export default function Dashboard() {
           <>
             <div className="mb-6">
               <h3 className="text-2xl font-semibold mb-4">
-                {selectedRaceType === "All" ? "All Races" : `${selectedRaceType} Races`}
+                {selectedRaceType === "All" ? "Featured Races" : `${selectedRaceType} Races`}
               </h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
