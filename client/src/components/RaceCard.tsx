@@ -89,7 +89,7 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
           <ShareButton
             title={race.title}
             text={leadingCandidate && leadingProbability 
-              ? `🗳️ ${race.title}: ${leadingCandidate} leads with ${leadingProbability.toFixed(1)}% win probability.`
+              ? `🗳️ Based on the scenario analysis, ${leadingCandidate} currently has the highest estimated win probability at ${leadingProbability.toFixed(1)}% in the ${race.title}.`
               : `🗳️ Check out the ${race.title} election analysis on ElectionPredict!`}
             url={`${window.location.origin}/race/${race.id}`}
             variant="outline"
