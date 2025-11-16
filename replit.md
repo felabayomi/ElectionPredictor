@@ -10,13 +10,26 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**November 16, 2025** - Featured Matchup Creation Improvements:
-- Replaced manual URL entry with race selection dropdown to prevent invalid URL errors
-- System now auto-generates URLs in correct format (`/race/{race-id}`)
-- Auto-fills title and description based on selected race
-- Fixed bug where suggested matchups generated wrong URLs
-- Improved UI to display featured matchups as cards with descriptions on both public and admin dashboards
-- Form resets after successful creation for better UX
+**November 16, 2025** - Race Creation and AI-Powered Intelligent Suggestions:
+- **Custom Race Creation**: Admins can now create new races beyond default seed data
+  - POST `/api/admin/races` endpoint with UUID-based IDs (prevents collisions)
+  - Collapsible form in AdminManage with fields: race type, title, election date, state, district, description
+  - Form provides guidance that races need candidates added before appearing in suggestions
+  - Newly created races immediately appear in race selection dropdown
+  
+- **AI-Powered Intelligent Suggestions**: Replaced basic suggestions with GPT-5 analysis
+  - GET `/api/admin/suggested-matchups` returns top 3 most compelling matchups
+  - AI analyzes competitiveness, current events relevance, timing, and viewer interest
+  - Each suggestion includes detailed reason (1-2 sentences) explaining appeal
+  - Fallback scoring system when AI is unavailable or slow
+  - Only suggests races with 2+ candidates and predictions (data quality filter)
+  - Response format: `{suggestions: [...], currentEventsContext: "..."}`
+  
+- **Earlier: Featured Matchup Creation Improvements**:
+  - Replaced manual URL entry with race selection dropdown to prevent invalid URL errors
+  - System now auto-generates URLs in correct format (`/race/{race-id}`)
+  - Auto-fills title and description based on selected race
+  - Improved UI to display featured matchups as cards with descriptions on both public and admin dashboards
 
 ## System Architecture
 
@@ -84,7 +97,9 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/admin/featured-matchups` - Create a new featured matchup
 - `DELETE /api/admin/featured-matchups/:id` - Delete a featured matchup
 - `PUT /api/admin/featured-matchups/:id/order` - Update matchup display order
-- `GET /api/admin/suggested-matchups` - Get AI-suggested matchups based on race metrics
+- `GET /api/admin/suggested-matchups` - AI-powered suggestions with GPT-5 analysis (returns `{suggestions, currentEventsContext}`)
+- `POST /api/admin/races` - Create custom races (returns Race with UUID-based ID)
+- `POST /api/admin/races/:raceId/candidates` - Add candidates to a race (for future implementation)
 
 **Prediction Model:**
 The application uses a weighted factor system combining:
