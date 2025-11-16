@@ -66,6 +66,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/admin/races/:id", async (req, res) => {
+    try {
+      await storage.deleteRace(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting race:", error);
+      res.status(500).json({ error: "Failed to delete race" });
+    }
+  });
+
   app.post("/api/admin/races/:raceId/candidates", async (req, res) => {
     try {
       const result = insertCandidateSchema.safeParse(req.body);

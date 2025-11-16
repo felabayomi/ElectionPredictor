@@ -28,6 +28,7 @@ export interface IStorage {
   getRace(id: string): Promise<Race | undefined>;
   incrementRaceViews(raceId: string): Promise<void>;
   createRace(race: InsertRace): Promise<Race>;
+  deleteRace(id: string): Promise<void>;
   
   getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined>;
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
@@ -234,6 +235,12 @@ export class DbStorage implements IStorage {
       description: r.description || undefined,
       viewCount: r.viewCount || 0,
     };
+  }
+
+  async deleteRace(id: string): Promise<void> {
+    const { races } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    await this.db.delete(races).where(eq(races.id, id));
   }
 
   async getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined> {
