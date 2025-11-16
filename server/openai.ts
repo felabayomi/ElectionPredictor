@@ -248,24 +248,29 @@ export async function analyzeNaturalLanguageQuery(query: string): Promise<{
   predictions: Record<string, { probability: number; factors: PredictionFactors }>;
   analysis: string;
 }> {
-  const prompt = `You are a political analyst. Parse this election prediction query and provide detailed analysis:
+  const prompt = `You are a political analyst. Parse this election prediction query and extract ONLY the candidates who are COMPETING in the election (not those who are retiring or mentioned in passing).
 
 Query: "${query}"
 
 Instructions:
 1. Extract the race/position being discussed (e.g., "2028 New York Senate Race")
-2. Extract ALL candidate names mentioned in the query, even if they appear in lists with bullet points or special characters
-3. For each candidate, infer their party affiliation based on your knowledge of real politicians
-4. Generate realistic win probabilities and factor scores for each candidate
+2. Extract ONLY the candidate names who are COMPETING for this position
+   - DO NOT include politicians who are retiring or stepping down
+   - DO NOT include race names or locations as candidates
+   - Look for candidates in: comma-separated lists, bulleted lists (• - *), or sentence context
+3. For each candidate, infer their party affiliation based on your knowledge
+4. Generate realistic win probabilities and factor scores
 5. Provide comprehensive 4-5 paragraph analysis
 
-IMPORTANT: Look for candidate names anywhere in the query text, including:
-- Names in sentences
-- Names in bulleted lists (with • or - or *)
-- Names on separate lines
-- Names with special formatting
+EXAMPLES OF CORRECT EXTRACTION:
+Query: "Who would win if Chuck Schumer retires? Consider: Alexandria Ocasio-Cortez, Letitia James, Pat Ryan"
+→ Candidates: ["Alexandria Ocasio-Cortez", "Letitia James", "Pat Ryan"]
+→ NOT: ["Chuck Schumer", "New York Senate"]
 
-Return ONLY a valid JSON object (no markdown, no code blocks):
+Query: "Adam Schiff, Katie Porter, Barbara Lee, Eric Swalwell race for California Senate"
+→ Candidates: ["Adam Schiff", "Katie Porter", "Barbara Lee", "Eric Swalwell"]
+
+Return ONLY valid JSON (no markdown, no code blocks):
 {
   "raceTitle": "descriptive race title",
   "candidates": [
@@ -283,24 +288,13 @@ Return ONLY a valid JSON object (no markdown, no code blocks):
         "endorsements": 55,
         "historicalTrends": 50
       }
-    },
-    "Another Name": {
-      "probability": 30,
-      "factors": {
-        "polling": 55,
-        "fundraising": 60,
-        "nameRecognition": 75,
-        "demographics": 50,
-        "endorsements": 45,
-        "historicalTrends": 45
-      }
     }
   },
   "analysis": "Detailed 4-5 paragraph analysis discussing the race dynamics, each candidate's strengths/weaknesses, and prediction rationale."
 }
 
-Party values must be exactly: "Democratic", "Republican", or "Independent"
-Ensure probabilities sum to approximately 100 across all candidates.`;
+Party values: "Democratic", "Republican", or "Independent"
+Probabilities must sum to ~100.`;
 
   try {
     console.log("Sending natural language query to OpenAI:", query.substring(0, 100) + "...");
@@ -342,9 +336,20 @@ Ensure probabilities sum to approximately 100 across all candidates.`;
     
     console.log("Fallback extraction found candidates:", candidateNames);
     
+    const excludeTerms = [
+      'New York', 'California', 'Senate', 'House', 'Governor', 'Presidential',
+      'Democratic', 'Republican', 'Independent', 'Primary', 'Election',
+      'Race', 'Consider', 'These Candidates', 'Top Contenders'
+    ];
+    
     const uniqueNames = Array.from(new Set(candidateNames.map(n => n.trim())))
       .filter(n => n.length > 3)
-      .filter(n => !n.includes('\n'));
+      .filter(n => !n.includes('\n'))
+      .filter(n => !excludeTerms.some(term => n.includes(term)))
+      .filter(n => {
+        const words = n.split(' ');
+        return words.length >= 2 && words.length <= 4;
+      });
     
     const candidates = uniqueNames.slice(0, 10).map(name => ({
       name: name.trim(),
