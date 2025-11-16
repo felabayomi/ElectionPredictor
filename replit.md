@@ -63,11 +63,19 @@ Preferred communication style: Simple, everyday language.
   - Race detail pages: Share button in header (top right)
   - Comparison panels: Share button in "Head-to-Head Comparison" header
 
-**November 16, 2025** - Natural Language Query Improvements (IN PROGRESS):
-- Enhanced GPT-5 integration with improved prompts for extracting candidates from bulleted lists
-- Improved fallback regex extraction for cases when OpenAI API is unavailable
-- Added defensive null checks in frontend to prevent crashes
-- Known Issue: Some complex multi-line queries with special formatting may not extract all candidates correctly - investigating
+**November 16, 2025** - Natural Language Query Improvements (COMPLETED ✅):
+- **Frontend Fix**: Fixed critical bug where `apiRequest` function returned raw Response object instead of parsed JSON
+  - Changed return type from `Promise<Response>` to generic `Promise<T>`
+  - Added `await res.json()` to properly parse responses
+  - This was causing UI to remain stuck in loading state even when backend returned data
+  
+- **Fallback Extraction Improvements**:
+  - Smart candidate section detection: extracts only text AFTER keywords like "consider", "candidates", "contenders"
+  - Retiring politician filter: excludes names mentioned BEFORE "retires/retiring/steps down" keywords
+  - Example: "Chuck Schumer retires? Consider: AOC, Letitia James..." correctly excludes "Chuck Schumer" and includes only the 5 listed candidates
+  - Additional geographic/institutional term filtering: excludes "New York Senate", state names, office titles
+  
+- **Test Results**: E2E test confirms 5 candidates extracted correctly with probabilities, Chuck Schumer properly excluded
 
 **November 16, 2025** - Race Creation and AI-Powered Intelligent Suggestions:
 - **Custom Race Creation**: Admins can now create new races beyond default seed data
