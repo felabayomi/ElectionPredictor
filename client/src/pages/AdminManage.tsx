@@ -161,6 +161,23 @@ export default function AdminManage() {
     },
   });
 
+  const deleteRaceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/admin/races/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      toast({ title: "Race deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   const handleCreateRace = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRace.title.trim() || !newRace.electionDate) {
@@ -292,6 +309,59 @@ export default function AdminManage() {
             </form>
           </CardContent>
         )}
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>All Races</CardTitle>
+          <CardDescription>
+            {racesData.length} race{racesData.length !== 1 ? "s" : ""} in database
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {racesData.length === 0 ? (
+            <p className="text-muted-foreground">No races yet. Create one above or use Natural Language Analysis.</p>
+          ) : (
+            <div className="space-y-3">
+              {racesData.map(({ race, candidates, predictions }) => (
+                <div
+                  key={race.id}
+                  data-testid={`race-${race.id}`}
+                  className="flex items-start justify-between p-4 rounded-md border"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold">{race.title}</h3>
+                      <span className="text-xs text-muted-foreground">({race.type})</span>
+                    </div>
+                    {race.description && (
+                      <p className="text-sm text-muted-foreground mb-1">{race.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                      <span>{candidates.length} candidate{candidates.length !== 1 ? "s" : ""}</span>
+                      <span>{predictions.length} prediction{predictions.length !== 1 ? "s" : ""}</span>
+                      {race.viewCount && race.viewCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          {race.viewCount} views
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    data-testid={`button-delete-race-${race.id}`}
+                    onClick={() => deleteRaceMutation.mutate(race.id)}
+                    disabled={deleteRaceMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
