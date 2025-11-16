@@ -34,6 +34,7 @@ export interface IStorage {
   getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined>;
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
   createPrediction(prediction: Prediction): Promise<void>;
+  updatePrediction(prediction: Prediction): Promise<void>;
   
   getAllFeaturedMatchups(): Promise<FeaturedMatchup[]>;
   createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup>;
@@ -323,6 +324,27 @@ export class DbStorage implements IStorage {
       methodology: prediction.methodology,
       aiAnalysis: prediction.aiAnalysis,
     });
+  }
+
+  async updatePrediction(prediction: Prediction): Promise<void> {
+    const { predictions } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+    await this.db
+      .update(predictions)
+      .set({
+        winProbability: prediction.winProbability,
+        confidenceIntervalLow: prediction.confidenceInterval.low,
+        confidenceIntervalHigh: prediction.confidenceInterval.high,
+        factors: prediction.factors,
+        methodology: prediction.methodology,
+        aiAnalysis: prediction.aiAnalysis,
+      })
+      .where(
+        and(
+          eq(predictions.raceId, prediction.raceId),
+          eq(predictions.candidateId, prediction.candidateId)
+        )
+      );
   }
 
   async getAllFeaturedMatchups(): Promise<FeaturedMatchup[]> {

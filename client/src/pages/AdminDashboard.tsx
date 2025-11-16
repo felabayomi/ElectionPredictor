@@ -50,6 +50,26 @@ export default function AdminDashboard() {
     },
   });
 
+  const reanalyzeRaceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/admin/races/${id}/reanalyze`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      toast({ 
+        title: "Race reanalyzed successfully",
+        description: "Predictions updated based on current political landscape"
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to reanalyze race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   const deleteRaceMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/admin/races/${id}`);
@@ -250,6 +270,8 @@ export default function AdminDashboard() {
                     candidateCount={candidates.length}
                     onEdit={(id, title) => updateRaceMutation.mutate({ id, title })}
                     editDisabled={updateRaceMutation.isPending}
+                    onReanalyze={(id) => reanalyzeRaceMutation.mutate(id)}
+                    reanalyzeDisabled={reanalyzeRaceMutation.isPending}
                     onDelete={(id) => deleteRaceMutation.mutate(id)}
                     deleteDisabled={deleteRaceMutation.isPending}
                   />

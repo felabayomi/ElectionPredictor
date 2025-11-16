@@ -245,6 +245,56 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
   }
 }
 
+export async function reanalyzeRace(
+  raceTitle: string,
+  candidates: Array<{ id: string; name: string; party: Party }>
+): Promise<Record<string, { probability: number; factors: PredictionFactors }>> {
+  const prompt = `You are a political data scientist. Re-analyze this election with the LATEST current events and political landscape:
+
+Race: ${raceTitle}
+Candidates:
+${candidates.map((c, i) => `${i + 1}. ${c.name} (${c.party})`).join('\n')}
+
+IMPORTANT: Consider the CURRENT political climate, recent news, and latest developments. Generate UPDATED win probabilities and factor scores (0-100) for each candidate using ONLY public information.
+
+Use this early-cycle prediction model with NO polling or fundraising data:
+
+{
+  "predictions": {
+    "candidate_name": {
+      "probability": number (0-100),
+      "factors": {
+        "partisanLean": number (0-100) - PVI, district demographics, past results (30% weight),
+        "candidateExperience": number (0-100) - Incumbent advantage, offices held (20% weight),
+        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (15% weight),
+        "endorsements": number (0-100) - Party support, official/union backing (15% weight),
+        "issueAlignment": number (0-100) - Match with district ideology/issues (10% weight),
+        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (10% weight)
+      }
+    }
+  }
+}
+
+Probabilities must sum to ~100. Return ONLY valid JSON.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [{ role: "user", content: prompt }],
+      max_completion_tokens: 2000,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const result = JSON.parse(content);
+    
+    return result.predictions || {};
+  } catch (error) {
+    console.error("OpenAI API error during reanalysis:", error);
+    throw new Error("Failed to reanalyze race");
+  }
+}
+
 export async function analyzeNaturalLanguageQuery(query: string): Promise<{
   raceTitle: string;
   candidates: Array<{ name: string; party: Party }>;

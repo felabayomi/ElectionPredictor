@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, generateIntelligentSuggestions } from "./openai";
+import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, generateIntelligentSuggestions, reanalyzeRace } from "./openai";
 import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, SuggestedMatchup } from "@shared/schema";
 import { insertFeaturedMatchupSchema, insertRaceSchema, insertCandidateSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -83,6 +83,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting race:", error);
       res.status(500).json({ error: "Failed to delete race" });
+    }
+  });
+
+  app.post("/api/admin/races/:id/reanalyze", async (req, res) => {
+    try {
+      const race = await storage.getRace(req.params.id);
+      if (!race) {
+        return res.status(404).json({ error: "Race not found" });
+      }
+
+      const candidates = await storage.getCandidatesByRace(req.params.id);
+      if (candidates.length === 0) {
+        return res.status(400).json({ error: "Race must have candidates to reanalyze" });
+      }
+
+      console.log(`Reanalyzing race: ${race.title} with ${candidates.length} candidates`);
+
+      // Call AI to regenerate predictions
+      const newPredictions = await reanalyzeRace(race.title, candidates);
+
+      // Update each prediction in the database
+      for (const candidate of candidates) {
+        const predictionData = newPredictions[candidate.name];
+        if (predictionData) {
+          const prediction: Prediction = {
+            raceId: race.id,
+            candidateId: candidate.id,
+            winProbability: predictionData.probability,
+            confidenceInterval: {
+              low: Math.max(0, predictionData.probability - 5),
+              high: Math.min(100, predictionData.probability + 5),
+            },
+            factors: predictionData.factors,
+            lastUpdated: new Date().toISOString(),
+            methodology: "AI-powered early-cycle prediction model using 6 key factors: Partisan Lean/Demographics (30%), Candidate Experience (20%), Name Recognition (15%), Endorsements (15%), Issue Alignment (10%), and Momentum (10%). No polling or fundraising data required.",
+            aiAnalysis: "Updated based on current political landscape and recent developments.",
+          };
+
+          await storage.updatePrediction(prediction);
+        }
+      }
+
+      // Fetch updated predictions to return
+      const updatedPredictions = await storage.getPredictionsByRace(race.id);
+      
+      console.log(`Successfully reanalyzed race: ${race.title}`);
+      res.json({ 
+        success: true, 
+        predictions: updatedPredictions,
+        message: "Race reanalyzed successfully"
+      });
+    } catch (error) {
+      console.error("Error reanalyzing race:", error);
+      res.status(500).json({ error: "Failed to reanalyze race" });
     }
   });
 

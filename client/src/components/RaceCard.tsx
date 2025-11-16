@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Race, RaceType } from "@shared/schema";
-import { Calendar, MapPin, Trash2, Pencil } from "lucide-react";
+import { Calendar, MapPin, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 
 interface RaceCardProps {
@@ -26,6 +26,8 @@ interface RaceCardProps {
   deleteDisabled?: boolean;
   onEdit?: (id: string, title: string) => void;
   editDisabled?: boolean;
+  onReanalyze?: (id: string) => void;
+  reanalyzeDisabled?: boolean;
 }
 
 const raceTypeColors: Record<RaceType, string> = {
@@ -36,7 +38,7 @@ const raceTypeColors: Record<RaceType, string> = {
   Local: "bg-chart-5 text-white",
 };
 
-export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled, onEdit, editDisabled }: RaceCardProps) {
+export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled, onEdit, editDisabled, onReanalyze, reanalyzeDisabled }: RaceCardProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(race.title);
 
@@ -119,6 +121,22 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
           <p className="text-sm text-muted-foreground">
             {candidateCount} candidate{candidateCount !== 1 ? "s" : ""} analyzed
           </p>
+        )}
+
+        {onReanalyze && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              onReanalyze(race.id);
+            }}
+            disabled={reanalyzeDisabled}
+            data-testid={`button-reanalyze-${race.id}`}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${reanalyzeDisabled ? 'animate-spin' : ''}`} />
+            {reanalyzeDisabled ? 'Reanalyzing...' : 'Reanalyze'}
+          </Button>
         )}
 
         <div className="flex gap-2">
