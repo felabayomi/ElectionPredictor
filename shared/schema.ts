@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, doublePrecision, timestamp, jsonb, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,6 +7,57 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+});
+
+export const races = pgTable("races", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type", { length: 20 }).notNull(),
+  title: text("title").notNull(),
+  state: text("state"),
+  district: text("district"),
+  electionDate: text("election_date").notNull(),
+  description: text("description"),
+  viewCount: integer("view_count").default(0),
+});
+
+export const candidates = pgTable("candidates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  party: varchar("party", { length: 20 }).notNull(),
+  photoUrl: text("photo_url"),
+  position: text("position"),
+  district: text("district"),
+  state: text("state"),
+});
+
+export const predictions = pgTable("predictions", {
+  raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
+  candidateId: varchar("candidate_id").notNull().references(() => candidates.id, { onDelete: 'cascade' }),
+  winProbability: doublePrecision("win_probability").notNull(),
+  confidenceIntervalLow: doublePrecision("confidence_interval_low").notNull(),
+  confidenceIntervalHigh: doublePrecision("confidence_interval_high").notNull(),
+  factors: jsonb("factors").notNull(),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  methodology: text("methodology").notNull(),
+  aiAnalysis: text("ai_analysis"),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.raceId, table.candidateId] })
+}));
+
+export const raceCandidates = pgTable("race_candidates", {
+  raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
+  candidateId: varchar("candidate_id").notNull().references(() => candidates.id, { onDelete: 'cascade' }),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.raceId, table.candidateId] })
+}));
+
+export const featuredMatchups = pgTable("featured_matchups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  url: text("url").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
