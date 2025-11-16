@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery } from "./openai";
+import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, generateIntelligentSuggestions } from "./openai";
 import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, SuggestedMatchup } from "@shared/schema";
-import { insertFeaturedMatchupSchema } from "@shared/schema";
+import { insertFeaturedMatchupSchema, insertRaceSchema, insertCandidateSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -38,6 +38,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching race:", error);
       res.status(500).json({ error: "Failed to fetch race" });
+    }
+  });
+
+  app.post("/api/races/:id/view", async (req, res) => {
+    try {
+      await storage.incrementRaceViews(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error incrementing race views:", error);
+      res.status(500).json({ error: "Failed to increment views" });
+    }
+  });
+
+  app.post("/api/admin/races", async (req, res) => {
+    try {
+      const result = insertRaceSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid race data", details: result.error });
+      }
+
+      const race = await storage.createRace(result.data);
+      res.json(race);
+    } catch (error) {
+      console.error("Error creating race:", error);
+      res.status(500).json({ error: "Failed to create race" });
+    }
+  });
+
+  app.post("/api/admin/races/:raceId/candidates", async (req, res) => {
+    try {
+      const result = insertCandidateSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid candidate data", details: result.error });
+      }
+
+      const candidate = await storage.createCandidate(result.data, req.params.raceId);
+      res.json(candidate);
+    } catch (error) {
+      console.error("Error creating candidate:", error);
+      res.status(500).json({ error: "Failed to create candidate" });
     }
   });
 
@@ -505,56 +545,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/suggested-matchups", async (_req, res) => {
     try {
       const races = await storage.getAllRaces();
-      const suggestions: SuggestedMatchup[] = [];
+      const racesWithData = await Promise.all(
+        races.map(async (race) => ({
+          race,
+          candidates: await storage.getCandidatesByRace(race.id),
+          predictions: await storage.getPredictionsByRace(race.id),
+        }))
+      );
 
-      for (const race of races) {
-        const candidates = await storage.getCandidatesByRace(race.id);
-        const predictions = await storage.getPredictionsByRace(race.id);
-
-        if (candidates.length >= 2 && predictions.length >= 2) {
-          const sortedPredictions = predictions.sort((a, b) => b.winProbability - a.winProbability);
-          const topTwo = sortedPredictions.slice(0, 2);
-          const margin = Math.abs(topTwo[0].winProbability - topTwo[1].winProbability);
-
-          const topTwoCandidates = candidates.filter(c => 
-            topTwo.some(p => p.candidateId === c.id)
-          ).slice(0, 2);
-
-          let reason = "";
-          let score = 0;
-
-          if (margin < 10) {
-            reason = `Extremely close race - only ${margin.toFixed(1)}% margin`;
-            score = 100 - margin;
-          } else if (margin < 20) {
-            reason = `Competitive race - ${margin.toFixed(1)}% margin`;
-            score = 80 - margin;
-          } else if (race.viewCount && race.viewCount > 10) {
-            reason = `High interest - ${race.viewCount} views`;
-            score = Math.min(race.viewCount * 2, 70);
-          } else {
-            const daysUntilElection = Math.floor((new Date(race.electionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            if (daysUntilElection < 90) {
-              reason = `Upcoming election - ${daysUntilElection} days away`;
-              score = Math.max(60 - daysUntilElection / 3, 40);
-            } else {
-              reason = `Notable matchup in ${race.title}`;
-              score = 30;
-            }
-          }
-
-          suggestions.push({
-            race,
-            candidates: topTwoCandidates,
-            predictions: topTwo,
-            reason,
-            score,
-          });
-        }
-      }
-
-      suggestions.sort((a, b) => b.score - a.score);
-      res.json(suggestions.slice(0, 10));
+      const result = await generateIntelligentSuggestions(racesWithData);
+      res.json(result);
     } catch (error) {
       console.error("Error generating suggested matchups:", error);
       res.status(500).json({ error: "Failed to generate suggestions" });

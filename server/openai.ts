@@ -121,6 +121,127 @@ Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
   }
 }
 
+export async function generateIntelligentSuggestions(
+  races: Array<{ race: any; candidates: any[]; predictions: any[] }>,
+  currentNewsContext?: string
+): Promise<{
+  suggestions: Array<{
+    race: any;
+    candidates: any[];
+    predictions: any[];
+    reason: string;
+    score: number;
+  }>;
+  currentEventsContext: string;
+}> {
+  const racesContext = races.map(r => ({
+    id: r.race.id,
+    title: r.race.title,
+    type: r.race.type,
+    state: r.race.state,
+    electionDate: r.race.electionDate,
+    candidateCount: r.candidates.length,
+    viewCount: r.race.viewCount || 0,
+    topCandidates: r.candidates.slice(0, 2).map(c => c.name),
+    margin: r.predictions.length >= 2 
+      ? Math.abs(r.predictions[0].winProbability - r.predictions[1].winProbability)
+      : 0,
+  }));
+
+  const contextSection = currentNewsContext 
+    ? `\n\nCurrent Political News Context:\n${currentNewsContext}\n\nUse this news context to inform which races are most relevant right now.`
+    : '';
+
+  const prompt = `You are a political news analyst. Analyze these election races and suggest the TOP 3 most interesting matchups to feature based on:
+
+1. **Current Events**: What races are getting media attention? What's happening in politics that makes certain races more relevant?
+2. **Competitiveness**: Close margins are more exciting
+3. **Viewer Interest**: Races people are already viewing
+4. **Timing**: Upcoming elections are more relevant than distant ones${contextSection}
+
+Available Races:
+${JSON.stringify(racesContext, null, 2)}
+
+Return a JSON object with:
+{
+  "currentEventsContext": "2-3 sentence summary of current political climate and why these races matter",
+  "suggestions": [
+    {
+      "raceId": "race-id-from-list",
+      "reason": "1-2 sentence explanation of why this race is compelling right now",
+      "score": number (0-100, higher = more interesting)
+    }
+  ]
+}
+
+Prioritize races that:
+- Are relevant to current political news
+- Have competitive margins (<15%)
+- Are getting viewer attention
+- Have upcoming election dates
+
+Return EXACTLY 3 suggestions, ordered by score (highest first).`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [{ role: "user", content: prompt }],
+      max_completion_tokens: 1500,
+      temperature: 1,
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const result = JSON.parse(content);
+    
+    const suggestions = (result.suggestions || [])
+      .map((s: any) => {
+        const matchingRace = races.find(r => r.race.id === s.raceId);
+        if (!matchingRace) return null;
+        
+        return {
+          race: matchingRace.race,
+          candidates: matchingRace.candidates.slice(0, 2),
+          predictions: matchingRace.predictions.slice(0, 2),
+          reason: s.reason,
+          score: s.score,
+        };
+      })
+      .filter((s: any) => s !== null);
+
+    return {
+      suggestions,
+      currentEventsContext: result.currentEventsContext || "",
+    };
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    
+    const fallbackSuggestions = races
+      .filter(r => r.predictions.length >= 2)
+      .map(r => {
+        const margin = Math.abs(r.predictions[0].winProbability - r.predictions[1].winProbability);
+        const viewScore = (r.race.viewCount || 0) * 10;
+        const competitiveScore = (20 - margin) * 5;
+        const score = viewScore + competitiveScore;
+        
+        return {
+          race: r.race,
+          candidates: r.candidates.slice(0, 2),
+          predictions: r.predictions.slice(0, 2),
+          reason: `Close race with ${margin.toFixed(1)}% margin${r.race.viewCount ? ` - ${r.race.viewCount} views` : ''}`,
+          score,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    return {
+      suggestions: fallbackSuggestions,
+      currentEventsContext: "Analysis based on race competitiveness and viewer interest.",
+    };
+  }
+}
+
 export async function analyzeNaturalLanguageQuery(query: string): Promise<{
   raceTitle: string;
   candidates: Array<{ name: string; party: Party }>;

@@ -26,14 +26,25 @@ export default function AdminManage() {
     url: "",
   });
   const [selectedRaceId, setSelectedRaceId] = useState<string>("");
+  const [newRace, setNewRace] = useState({
+    type: "Presidential" as const,
+    title: "",
+    state: "",
+    district: "",
+    electionDate: "",
+    description: "",
+  });
+  const [showRaceForm, setShowRaceForm] = useState(false);
 
   const { data: featuredMatchups = [], isLoading: loadingFeatured } = useQuery<FeaturedMatchup[]>({
     queryKey: ["/api/featured-matchups"],
   });
 
-  const { data: suggestedMatchups = [], isLoading: loadingSuggested } = useQuery<SuggestedMatchup[]>({
+  const { data: suggestedMatchupsData, isLoading: loadingSuggested } = useQuery<{suggestions: SuggestedMatchup[], currentEventsContext?: string}>({
     queryKey: ["/api/admin/suggested-matchups"],
   });
+
+  const suggestedMatchups = suggestedMatchupsData?.suggestions || [];
 
   const { data: racesData = [] } = useQuery<RaceWithData[]>({
     queryKey: ["/api/races"],
@@ -121,6 +132,47 @@ export default function AdminManage() {
     createMutation.mutate(newMatchup);
   };
 
+  const createRaceMutation = useMutation({
+    mutationFn: async (data: typeof newRace) => {
+      return apiRequest("POST", "/api/admin/races", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setNewRace({
+        type: "Presidential",
+        title: "",
+        state: "",
+        district: "",
+        electionDate: "",
+        description: "",
+      });
+      setShowRaceForm(false);
+      toast({ 
+        title: "Race created successfully!", 
+        description: "Note: This race won't appear in suggestions until you add candidates to it."
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleCreateRace = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRace.title.trim() || !newRace.electionDate) {
+      toast({ 
+        title: "Title and election date are required", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    createRaceMutation.mutate(newRace);
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
@@ -135,6 +187,112 @@ export default function AdminManage() {
         <h1 className="text-3xl font-bold mb-2">Manage Featured Matchups</h1>
         <p className="text-muted-foreground">Create and curate featured matchups for the homepage</p>
       </div>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Create New Race</CardTitle>
+              <CardDescription>Add custom races beyond the default set</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowRaceForm(!showRaceForm)}
+              data-testid="button-toggle-race-form"
+            >
+              {showRaceForm ? "Hide Form" : "Show Form"}
+            </Button>
+          </div>
+        </CardHeader>
+        {showRaceForm && (
+          <CardContent>
+            <form onSubmit={handleCreateRace} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="race-type">Race Type</Label>
+                  <Select 
+                    value={newRace.type} 
+                    onValueChange={(value: any) => setNewRace({ ...newRace, type: value })}
+                  >
+                    <SelectTrigger id="race-type" data-testid="select-race-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Presidential">Presidential</SelectItem>
+                      <SelectItem value="Senate">Senate</SelectItem>
+                      <SelectItem value="House">House</SelectItem>
+                      <SelectItem value="Governor">Governor</SelectItem>
+                      <SelectItem value="Local">Local</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="election-date">Election Date</Label>
+                  <Input
+                    id="election-date"
+                    type="date"
+                    data-testid="input-election-date"
+                    value={newRace.electionDate}
+                    onChange={(e) => setNewRace({ ...newRace, electionDate: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="race-title">Race Title</Label>
+                <Input
+                  id="race-title"
+                  data-testid="input-race-title"
+                  placeholder="e.g., 2026 Florida Senate Race"
+                  value={newRace.title}
+                  onChange={(e) => setNewRace({ ...newRace, title: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="state">State (Optional)</Label>
+                  <Input
+                    id="state"
+                    data-testid="input-state"
+                    placeholder="e.g., Florida"
+                    value={newRace.state}
+                    onChange={(e) => setNewRace({ ...newRace, state: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="district">District (Optional)</Label>
+                  <Input
+                    id="district"
+                    data-testid="input-district"
+                    placeholder="e.g., FL-12"
+                    value={newRace.district}
+                    onChange={(e) => setNewRace({ ...newRace, district: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="race-description">Description (Optional)</Label>
+                <Textarea
+                  id="race-description"
+                  data-testid="input-race-description"
+                  placeholder="Brief description of the race"
+                  value={newRace.description}
+                  onChange={(e) => setNewRace({ ...newRace, description: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full"
+                data-testid="button-create-race"
+                disabled={createRaceMutation.isPending}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {createRaceMutation.isPending ? "Creating..." : "Create Race"}
+              </Button>
+            </form>
+          </CardContent>
+        )}
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">

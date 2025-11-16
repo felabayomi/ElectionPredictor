@@ -2,7 +2,9 @@ import type {
   User,
   InsertUser,
   Candidate,
+  InsertCandidate,
   Race,
+  InsertRace,
   Prediction,
   PredictionFactors,
   Party,
@@ -20,10 +22,12 @@ export interface IStorage {
   getCandidate(id: string): Promise<Candidate | undefined>;
   getCandidatesByRace(raceId: string): Promise<Candidate[]>;
   getNYSenateCandidates(): Promise<Candidate[]>;
+  createCandidate(candidate: InsertCandidate, raceId: string): Promise<Candidate>;
   
   getAllRaces(): Promise<Race[]>;
   getRace(id: string): Promise<Race | undefined>;
   incrementRaceViews(raceId: string): Promise<void>;
+  createRace(race: InsertRace): Promise<Race>;
   
   getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined>;
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
@@ -433,6 +437,31 @@ export class MemStorage implements IStorage {
       race.viewCount = (race.viewCount || 0) + 1;
       this.races.set(raceId, race);
     }
+  }
+
+  async createRace(insertRace: InsertRace): Promise<Race> {
+    const id = randomUUID();
+    const race: Race = {
+      ...insertRace,
+      id,
+      viewCount: 0,
+    };
+    this.races.set(id, race);
+    return race;
+  }
+
+  async createCandidate(insertCandidate: InsertCandidate, raceId: string): Promise<Candidate> {
+    const id = randomUUID();
+    const candidate: Candidate = {
+      ...insertCandidate,
+      id,
+    };
+    this.candidates.set(id, candidate);
+    
+    const existingCandidates = this.candidateRaceMapping.get(raceId) || [];
+    this.candidateRaceMapping.set(raceId, [...existingCandidates, id]);
+    
+    return candidate;
   }
 
   async getAllFeaturedMatchups(): Promise<FeaturedMatchup[]> {
