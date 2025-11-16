@@ -73,10 +73,12 @@ export type Party = "Democratic" | "Republican" | "Independent";
 export type RaceType = "Presidential" | "Senate" | "House" | "Governor" | "Local";
 
 export interface PredictionFactors {
-  polling: number;
-  demographics: number;
-  nameRecognition: number;
+  partisanLean: number;
   candidateExperience: number;
+  nameRecognition: number;
+  endorsements: number;
+  issueAlignment: number;
+  momentum: number;
 }
 
 export interface Candidate {

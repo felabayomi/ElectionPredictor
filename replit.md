@@ -181,15 +181,15 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/admin/races/:raceId/candidates` - Add candidates to a race (for future implementation)
 
 **Prediction Model:**
-The application uses a weighted factor system combining:
-- Polling data (35% weight)
-- Fundraising totals (20% weight)
-- Name recognition (15% weight)
-- Demographics alignment (15% weight)
-- Endorsements (10% weight)
-- Historical trends (5% weight)
+The application uses an early-cycle weighted factor system requiring NO polling or fundraising data:
+- Partisan Lean / Demographics (30% weight) - PVI, district makeup, past results
+- Candidate Experience / Incumbency (20% weight) - Incumbent advantage, offices held
+- Name Recognition / Public Visibility (15% weight) - Media coverage, Google Trends, social media
+- Endorsements / Party Support (15% weight) - Party backing, officials, unions
+- Issue Alignment / Ideology Fit (10% weight) - Match with district ideology/issues
+- Momentum / Public Engagement (10% weight) - Volunteer activity, event attendance, organic growth
 
-Each candidate receives a composite win probability score with confidence intervals.
+Each candidate receives a composite win probability score (0-100) with confidence intervals based entirely on publicly available data.
 
 ### External Dependencies
 

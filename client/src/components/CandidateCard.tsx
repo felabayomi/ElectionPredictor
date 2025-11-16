@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PartyBadge } from "./PartyBadge";
 import { ProbabilityBar } from "./ProbabilityBar";
 import type { Candidate, Prediction } from "@shared/schema";
-import { TrendingUp, Briefcase, Users, MapPin } from "lucide-react";
+import { MapPin, Briefcase, Users, Award, Target, TrendingUp } from "lucide-react";
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -85,27 +85,13 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
             confidenceInterval={prediction.confidenceInterval}
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span>Polling</span>
-              </div>
-              <p className="font-mono text-sm font-semibold">{prediction.factors.polling.toFixed(1)}</p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3" />
-                <span>Demographics</span>
+                <span>Partisan Lean</span>
               </div>
-              <p className="font-mono text-sm font-semibold">{prediction.factors.demographics.toFixed(1)}</p>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Users className="h-3 w-3" />
-                <span>Recognition</span>
-              </div>
-              <p className="font-mono text-sm font-semibold">{prediction.factors.nameRecognition.toFixed(1)}</p>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.partisanLean || 0).toFixed(1)}</p>
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -113,6 +99,34 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
                 <span>Experience</span>
               </div>
               <p className="font-mono text-sm font-semibold">{(prediction.factors.candidateExperience || 0).toFixed(1)}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Users className="h-3 w-3" />
+                <span>Recognition</span>
+              </div>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.nameRecognition || 0).toFixed(1)}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Award className="h-3 w-3" />
+                <span>Endorsements</span>
+              </div>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.endorsements || 0).toFixed(1)}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Target className="h-3 w-3" />
+                <span>Issue Alignment</span>
+              </div>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.issueAlignment || 0).toFixed(1)}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span>Momentum</span>
+              </div>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.momentum || 0).toFixed(1)}</p>
             </div>
           </div>
 

@@ -139,17 +139,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const factorKeys: (keyof PredictionFactors)[] = [
-        "polling",
-        "demographics",
-        "nameRecognition",
+        "partisanLean",
         "candidateExperience",
+        "nameRecognition",
+        "endorsements",
+        "issueAlignment",
+        "momentum",
       ];
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
-        polling: "Polling Average",
-        demographics: "Demographics / Partisan Lean",
-        nameRecognition: "Name Recognition",
-        candidateExperience: "Candidate Experience",
+        partisanLean: "Partisan Lean / Demographics",
+        candidateExperience: "Candidate Experience / Incumbency",
+        nameRecognition: "Name Recognition / Public Visibility",
+        endorsements: "Endorsements / Party Support",
+        issueAlignment: "Issue Alignment / Ideology Fit",
+        momentum: "Momentum / Public Engagement",
       };
 
       const factorComparison = factorKeys.map((factor) => {
@@ -207,17 +211,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const factorKeys: (keyof PredictionFactors)[] = [
-        "polling",
-        "demographics",
-        "nameRecognition",
+        "partisanLean",
         "candidateExperience",
+        "nameRecognition",
+        "endorsements",
+        "issueAlignment",
+        "momentum",
       ];
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
-        polling: "Polling Average",
-        demographics: "Demographics / Partisan Lean",
-        nameRecognition: "Name Recognition",
-        candidateExperience: "Candidate Experience",
+        partisanLean: "Partisan Lean / Demographics",
+        candidateExperience: "Candidate Experience / Incumbency",
+        nameRecognition: "Name Recognition / Public Visibility",
+        endorsements: "Endorsements / Party Support",
+        issueAlignment: "Issue Alignment / Ideology Fit",
+        momentum: "Momentum / Public Engagement",
       };
 
       const factorComparison = factorKeys.map((factor) => {
@@ -310,10 +318,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             winProbability: 50,
             confidenceInterval: { low: 40, high: 60 },
             factors: {
-              polling: 50,
-              demographics: 50,
-              nameRecognition: 50,
+              partisanLean: 50,
               candidateExperience: 50,
+              nameRecognition: 50,
+              endorsements: 50,
+              issueAlignment: 50,
+              momentum: 50,
             },
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered custom prediction analysis (default values)",
@@ -343,17 +353,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [prediction1, prediction2] = sortedPredictions;
 
       const factorKeys: (keyof PredictionFactors)[] = [
-        "polling",
-        "demographics",
-        "nameRecognition",
+        "partisanLean",
         "candidateExperience",
+        "nameRecognition",
+        "endorsements",
+        "issueAlignment",
+        "momentum",
       ];
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
-        polling: "Polling Average",
-        demographics: "Demographics / Partisan Lean",
-        nameRecognition: "Name Recognition",
-        candidateExperience: "Candidate Experience",
+        partisanLean: "Partisan Lean / Demographics",
+        candidateExperience: "Candidate Experience / Incumbency",
+        nameRecognition: "Name Recognition / Public Visibility",
+        endorsements: "Endorsements / Party Support",
+        issueAlignment: "Issue Alignment / Ideology Fit",
+        momentum: "Momentum / Public Engagement",
       };
 
       const factorComparison = factorKeys.map((factor) => {
@@ -432,10 +446,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             winProbability: 50,
             confidenceInterval: { low: 40, high: 60 },
             factors: {
-              polling: 50,
-              demographics: 50,
-              nameRecognition: 50,
+              partisanLean: 50,
               candidateExperience: 50,
+              nameRecognition: 50,
+              endorsements: 50,
+              issueAlignment: 50,
+              momentum: 50,
             },
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered natural language analysis (default values)",

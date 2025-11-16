@@ -1,0 +1,134 @@
+Great — I’ll build all three for you:
+
+✅ 1. Scoring System (0–100) for the 6 Criteria
+
+Each criterion gets a score from 0 to 100, based on public, observable data.
+
+1. Partisan Lean / Demographics (0–100)
+	•	90–100: District strongly favors candidate’s party (PVI ≥ +10)
+	•	70–89: Lean advantage
+	•	40–69: Competitive district
+	•	10–39: District leans against candidate’s party
+	•	0–9: Strongly unfavorable district
+
+⸻
+
+2. Candidate Experience / Incumbency (0–100)
+	•	100: Incumbent U.S. Senator/Rep
+	•	80–99: Statewide officeholder (Gov, AG), Member of Congress
+	•	60–79: State senator/representative, major local office
+	•	30–59: Minor office, notable profession
+	•	0–29: No public experience, newcomer
+
+⸻
+
+3. Name Recognition (0–100)
+
+Use public indicators (media mentions, search interest, social reach).
+	•	80–100: Nationally known or major statewide figure
+	•	60–79: Well-known in district/state
+	•	40–59: Moderately known
+	•	20–39: Low recognition
+	•	0–19: Unknown
+
+⸻
+
+4. Endorsements / Party Support (0–100)
+	•	90–100: Endorsed by major state leaders, party establishment, or key unions
+	•	70–89: Several medium-tier endorsements
+	•	40–69: A few local endorsements
+	•	10–39: Minimal endorsements
+	•	0–9: None
+
+⸻
+
+5. Issue Alignment With District (0–100)
+	•	80–100: Ideology matches district perfectly
+	•	60–79: Mostly aligned
+	•	40–59: Mixed alignment
+	•	20–39: Poor alignment
+	•	0–19: Very mismatched
+
+⸻
+
+6. Momentum / Public Engagement (0–100)
+
+Measured through organic factors (volunteer activity, news coverage, social engagement).
+	•	80–100: Strong upward momentum
+	•	60–79: Visible, steady momentum
+	•	40–59: Neutral
+	•	20–39: Weak or declining
+	•	0–19: No momentum
+
+⸻
+
+✅ 2. Weighted Prediction Model
+
+Based on real forecasting models, here is an optimized weighting system:
+
+Criterion	Weight
+Partisan Lean / Demographics	30%
+Candidate Experience	20%
+Name Recognition	15%
+Endorsements / Party Support	15%
+Issue Alignment	10%
+Momentum	10%
+
+Formula
+
+Score = (PVI*0.30) + (Experience*0.20) + (NameRec*0.15) + (Endorsements*0.15) + (Issues*0.10) + (Momentum*0.10)
+
+Interpretation
+	•	80–100: Strong favorite
+	•	65–79: Slight favorite / competitive edge
+	•	50–64: Toss-up
+	•	35–49: Under-dog
+	•	0–34: Very low probability
+
+⸻
+
+✅ 3. Reusable Prediction Template
+
+You can use this for any election:
+
+⸻
+
+📍 Race: [Insert Race]
+
+1. Partisan Lean / Demographics (0–100):
+Score:
+Notes:
+
+2. Candidate Experience / Incumbency (0–100):
+Score:
+Notes:
+
+3. Name Recognition (0–100):
+Score:
+Notes:
+
+4. Endorsements / Party Support (0–100):
+Score:
+Notes:
+
+5. Issue Alignment With District (0–100):
+Score:
+Notes:
+
+6. Momentum / Public Engagement (0–100):
+Score:
+Notes:
+
+⸻
+
+🔢 Final Weighted Score:
+
+[Auto-calculate using formula]
+
+📊 Prediction:
+	•	Score Interpretation:
+	•	Candidate Outlook:
+
+⸻
+
+If you want, I can apply this model to a real race (e.g., Utah 1st, Maine Senate, Iowa 3rd) or create a spreadsheet version for you.

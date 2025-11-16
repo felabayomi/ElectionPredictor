@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TrendingUp, Briefcase, Users, MapPin } from "lucide-react";
+import { MapPin, Briefcase, Users, Award, Target, TrendingUp } from "lucide-react";
 
 interface MethodologyModalProps {
   open: boolean;
@@ -15,28 +15,40 @@ interface MethodologyModalProps {
 export function MethodologyModal({ open, onOpenChange }: MethodologyModalProps) {
   const factors = [
     {
-      icon: TrendingUp,
-      name: "Polling",
-      weight: "Most Predictive",
-      description: "Public polls, poll aggregations, and internal polls if publicly released. The most direct indicator of voter preference at any stage of the race.",
-    },
-    {
       icon: MapPin,
-      name: "Demographics / Partisan Lean",
-      weight: "Extremely Important",
-      description: "Underlying voting tendencies based on race/ethnicity, education, urban/suburban/rural splits, Partisan Voting Index (PVI), and past statewide results. Especially predictive early in races.",
-    },
-    {
-      icon: Users,
-      name: "Name Recognition / Public Awareness",
-      weight: "High Impact",
-      description: "Media mentions, Google Trends, social media following, public familiarity surveys, and endorsement visibility—all from publicly available sources.",
+      name: "Partisan Lean / Demographics",
+      weight: "30%",
+      description: "The strongest predictor without polling. Includes Partisan Voting Index (PVI), past statewide results, urban/rural split, and demographic composition (race, education, age, religion).",
     },
     {
       icon: Briefcase,
-      name: "Candidate Experience / Background",
-      weight: "Structural Factor",
-      description: "Incumbent vs. challenger status, elected offices held, government/military background, and candidate quality indicators. Based entirely on public records.",
+      name: "Candidate Experience / Incumbency",
+      weight: "20%",
+      description: "Most powerful candidate-specific predictor: incumbent advantage, previous elected offices, military/government background, and candidate quality used by professional forecasters.",
+    },
+    {
+      icon: Users,
+      name: "Name Recognition / Public Visibility",
+      weight: "15%",
+      description: "Purely public-based metrics: media coverage volume, Google Trends, social media following, and public familiarity. No fundraising data required.",
+    },
+    {
+      icon: Award,
+      name: "Endorsements / Party Support",
+      weight: "15%",
+      description: "Best early predictor in primaries: state party organization backing, major local/state officials, unions & advocacy groups, and high-profile national endorsements.",
+    },
+    {
+      icon: Target,
+      name: "Issue Alignment / Ideology Fit",
+      weight: "10%",
+      description: "Measures how well the candidate's positions match the district's political ideology, key local issues, and party base expectations. High alignment = higher early probability.",
+    },
+    {
+      icon: TrendingUp,
+      name: "Momentum / Public Engagement",
+      weight: "10%",
+      description: "Structural, non-fundraising signals: volunteer activity, event attendance, organic social media growth, public enthusiasm markers, and local news coverage trajectory.",
     },
   ];
 
@@ -54,7 +66,7 @@ export function MethodologyModal({ open, onOpenChange }: MethodologyModalProps) 
           <div>
             <h3 className="font-semibold text-lg mb-2">How It Works</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Our model evaluates candidate performance across four key public-information factors. These factors require no campaign finance data and rely entirely on publicly available information such as polls, census data, media coverage, and public records.
+              Our early-cycle prediction model evaluates candidate performance across six key public-information factors. This system requires no polling or campaign finance data, making it ideal for early-stage race analysis before comprehensive polling is available.
             </p>
           </div>
 
@@ -91,7 +103,7 @@ export function MethodologyModal({ open, onOpenChange }: MethodologyModalProps) 
           <div>
             <h3 className="font-semibold text-lg mb-2">Data Sources</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Predictions are based entirely on publicly available data: poll aggregators, census demographics, media coverage metrics, social media analytics, and public official records. No campaign fundraising data is required or used.
+              Predictions are based entirely on publicly available data: census demographics, Partisan Voting Index (PVI), media coverage metrics, social media analytics, public official records, and endorsement announcements. No polling or campaign fundraising data is required or used.
             </p>
           </div>
 

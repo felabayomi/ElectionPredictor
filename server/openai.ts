@@ -40,7 +40,7 @@ Keep the tone professional, neutral, and data-focused like FiveThirtyEight.`;
     return response.choices[0]?.message?.content || "Analysis unavailable.";
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return "Analysis temporarily unavailable. The prediction is based on statistical modeling of polling, demographics, name recognition, and candidate experience.";
+    return "Analysis temporarily unavailable. The prediction is based on early-cycle statistical modeling of partisan lean, candidate experience, name recognition, endorsements, issue alignment, and momentum.";
   }
 }
 
@@ -57,23 +57,26 @@ Race: ${raceTitle}
 Candidates:
 ${candidates.map((c, i) => `${i + 1}. ${c.name} (${c.party})`).join('\n')}
 
-Generate realistic win probabilities and factor scores for each candidate using ONLY public information. Return a JSON object with:
+Generate realistic win probabilities and factor scores (0-100) for each candidate using ONLY public information. Use this early-cycle prediction model with NO polling or fundraising data:
+
 {
   "predictions": {
     "candidate_name": {
       "probability": number (0-100),
       "factors": {
-        "polling": number (0-100) - Public polls and poll aggregations,
-        "demographics": number (0-100) - District demographics, PVI, partisan lean,
-        "nameRecognition": number (0-100) - Media mentions, Google Trends, social media,
-        "candidateExperience": number (0-100) - Incumbent status, offices held, public background
+        "partisanLean": number (0-100) - PVI, district demographics, past results (30% weight),
+        "candidateExperience": number (0-100) - Incumbent advantage, offices held (20% weight),
+        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (15% weight),
+        "endorsements": number (0-100) - Party support, official/union backing (15% weight),
+        "issueAlignment": number (0-100) - Match with district ideology/issues (10% weight),
+        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (10% weight)
       }
     }
   },
-  "analysis": "3-4 paragraph analysis explaining the race dynamics and key factors"
+  "analysis": "3-4 paragraph early-cycle analysis explaining race dynamics and key factors"
 }
 
-Use NO fundraising data. Base predictions entirely on: polling, demographics/partisan lean, name recognition/public awareness, and candidate experience/background strength.
+Use the weighted scoring system: partisanLean (30%), candidateExperience (20%), nameRecognition (15%), endorsements (15%), issueAlignment (10%), momentum (10%). NO polling or fundraising data.
 
 Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
 
@@ -104,17 +107,19 @@ Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
       fallbackPredictions[c.name] = {
         probability: Math.max(5, Math.min(95, baseProb + variance)),
         factors: {
-          polling: 40 + Math.random() * 40,
-          demographics: 40 + Math.random() * 40,
-          nameRecognition: 40 + Math.random() * 40,
+          partisanLean: 40 + Math.random() * 40,
           candidateExperience: 40 + Math.random() * 40,
+          nameRecognition: 40 + Math.random() * 40,
+          endorsements: 40 + Math.random() * 40,
+          issueAlignment: 40 + Math.random() * 40,
+          momentum: 40 + Math.random() * 40,
         },
       };
     });
     
     return {
       predictions: fallbackPredictions,
-      analysis: "Prediction analysis based on statistical modeling using publicly available data. Each candidate's viability depends on polling strength, demographic alignment, name recognition, and candidate experience.",
+      analysis: "Early-cycle prediction analysis based on statistical modeling using publicly available data. Each candidate's viability depends on partisan lean, candidate experience, name recognition, endorsements, issue alignment, and momentum—with NO polling or fundraising data required.",
     };
   }
 }
@@ -279,10 +284,12 @@ Return ONLY valid JSON (no markdown, no code blocks):
     "Full Name": {
       "probability": 35,
       "factors": {
-        "polling": 65,
-        "demographics": 60,
-        "nameRecognition": 85,
-        "candidateExperience": 70
+        "partisanLean": 75,
+        "candidateExperience": 80,
+        "nameRecognition": 65,
+        "endorsements": 70,
+        "issueAlignment": 60,
+        "momentum": 55
       }
     }
   },
@@ -371,10 +378,12 @@ Probabilities must sum to ~100.`;
       predictions[c.name] = {
         probability: Math.max(5, Math.min(95, baseProb + variance)),
         factors: {
-          polling: 40 + Math.random() * 40,
-          demographics: 40 + Math.random() * 40,
-          nameRecognition: 40 + Math.random() * 40,
+          partisanLean: 40 + Math.random() * 40,
           candidateExperience: 40 + Math.random() * 40,
+          nameRecognition: 40 + Math.random() * 40,
+          endorsements: 40 + Math.random() * 40,
+          issueAlignment: 40 + Math.random() * 40,
+          momentum: 40 + Math.random() * 40,
         },
       };
     });
