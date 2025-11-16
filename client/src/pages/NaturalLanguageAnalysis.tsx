@@ -42,7 +42,7 @@ export default function NaturalLanguageAnalysis() {
       setResult(data);
       toast({
         title: "Analysis Complete",
-        description: `Found ${data.candidates.length} candidates in your query.`,
+        description: `Found ${data.candidates?.length || 0} candidates in your query.`,
       });
     },
     onError: (error) => {
@@ -173,7 +173,7 @@ export default function NaturalLanguageAnalysis() {
           </div>
         )}
 
-        {result && !analyzeMutation.isPending && (
+        {result && !analyzeMutation.isPending && result.candidates && result.candidates.length > 0 && (
           <div className="space-y-6">
             <Card>
               <CardHeader>

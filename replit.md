@@ -10,21 +10,28 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**November 16, 2025** - Social Media Sharing Feature:
+**November 16, 2025** - Social Media Sharing Feature (COMPLETED ✅):
 - **Share Buttons**: Added social sharing functionality to race cards and detail pages
-  - Uses Web Share API (native mobile sharing) when available
-  - Fallback to platform-specific share links (X/Twitter, Facebook, LinkedIn, Copy Link)
+  - Uses Web Share API (native mobile sharing) when available on mobile devices
+  - Fallback to platform-specific share links (X/Twitter, Facebook, LinkedIn, Copy Link) on desktop
   - ShareButton component at `client/src/components/ShareButton.tsx`
+  - Fixed Twitter icon import (changed from SiTwitter to SiX due to rebrand)
   
 - **Share Text Templates**:
   - Race cards: "🗳️ [Race Title]: [Candidate] leads with [X]% win probability. See the full AI-powered analysis!"
-  - Race details: Same format with leading candidate data
+  - Race details: Same format with leading candidate data in header
   - Comparisons: "⚖️ [Candidate 1] vs [Candidate 2] in [Race Title]: [X]% vs [Y]%. Check out this AI-powered election analysis!"
   
 - **Locations**:
   - Dashboard race cards: Share button next to "View Analysis"
   - Race detail pages: Share button in header (top right)
   - Comparison panels: Share button in "Head-to-Head Comparison" header
+
+**November 16, 2025** - Natural Language Query Improvements (IN PROGRESS):
+- Enhanced GPT-5 integration with improved prompts for extracting candidates from bulleted lists
+- Improved fallback regex extraction for cases when OpenAI API is unavailable
+- Added defensive null checks in frontend to prevent crashes
+- Known Issue: Some complex multi-line queries with special formatting may not extract all candidates correctly - investigating
 
 **November 16, 2025** - Race Creation and AI-Powered Intelligent Suggestions:
 - **Custom Race Creation**: Admins can now create new races beyond default seed data

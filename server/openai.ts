@@ -252,60 +252,102 @@ export async function analyzeNaturalLanguageQuery(query: string): Promise<{
 
 Query: "${query}"
 
-Extract:
-1. The race/position being discussed
-2. All candidate names mentioned
-3. Generate win probabilities and factor scores for each candidate
-4. Provide comprehensive analysis
+Instructions:
+1. Extract the race/position being discussed (e.g., "2028 New York Senate Race")
+2. Extract ALL candidate names mentioned in the query, even if they appear in lists with bullet points or special characters
+3. For each candidate, infer their party affiliation based on your knowledge of real politicians
+4. Generate realistic win probabilities and factor scores for each candidate
+5. Provide comprehensive 4-5 paragraph analysis
 
-Return a JSON object:
+IMPORTANT: Look for candidate names anywhere in the query text, including:
+- Names in sentences
+- Names in bulleted lists (with • or - or *)
+- Names on separate lines
+- Names with special formatting
+
+Return ONLY a valid JSON object (no markdown, no code blocks):
 {
   "raceTitle": "descriptive race title",
   "candidates": [
-    { "name": "Full Name", "party": "Democratic|Republican|Independent" }
+    { "name": "Full Name", "party": "Democratic" },
+    { "name": "Another Name", "party": "Republican" }
   ],
   "predictions": {
-    "candidate_name": {
-      "probability": number (0-100),
+    "Full Name": {
+      "probability": 35,
       "factors": {
-        "polling": number (0-100),
-        "fundraising": number (0-100),
-        "nameRecognition": number (0-100),
-        "demographics": number (0-100),
-        "endorsements": number (0-100),
-        "historicalTrends": number (0-100)
+        "polling": 65,
+        "fundraising": 70,
+        "nameRecognition": 85,
+        "demographics": 60,
+        "endorsements": 55,
+        "historicalTrends": 50
+      }
+    },
+    "Another Name": {
+      "probability": 30,
+      "factors": {
+        "polling": 55,
+        "fundraising": 60,
+        "nameRecognition": 75,
+        "demographics": 50,
+        "endorsements": 45,
+        "historicalTrends": 45
       }
     }
   },
-  "analysis": "4-5 paragraph detailed analysis of the race, each candidate's strengths/weaknesses, and prediction rationale"
+  "analysis": "Detailed 4-5 paragraph analysis discussing the race dynamics, each candidate's strengths/weaknesses, and prediction rationale."
 }
 
-Infer party affiliations based on candidate names and context. Use your knowledge of real politicians. Ensure probabilities sum to ~100.`;
+Party values must be exactly: "Democratic", "Republican", or "Independent"
+Ensure probabilities sum to approximately 100 across all candidates.`;
 
   try {
+    console.log("Sending natural language query to OpenAI:", query.substring(0, 100) + "...");
+    
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-5",
       messages: [{ role: "user", content: prompt }],
       max_completion_tokens: 3000,
-      temperature: 1,
       response_format: { type: "json_object" },
     });
 
     const content = response.choices[0]?.message?.content || "{}";
+    console.log("OpenAI response received, parsing...");
+    
     const result = JSON.parse(content);
+    console.log("Parsed result:", {
+      raceTitle: result.raceTitle,
+      candidateCount: result.candidates?.length || 0,
+      candidateNames: result.candidates?.map((c: any) => c.name) || []
+    });
+    
+    if (!result.candidates || result.candidates.length === 0) {
+      console.warn("OpenAI returned no candidates, using fallback extraction");
+      throw new Error("No candidates in OpenAI response");
+    }
     
     return {
       raceTitle: result.raceTitle || "Election Analysis",
-      candidates: result.candidates || [],
+      candidates: result.candidates,
       predictions: result.predictions || {},
       analysis: result.analysis || "Analysis of the electoral scenario based on the provided information.",
     };
   } catch (error) {
-    console.error("OpenAI API error:", error);
+    console.error("OpenAI API error, using fallback extraction:", error);
     
-    const candidateNames = query.match(/[A-Z][a-z]+ [A-Z][a-z]+(-[A-Z][a-z]+)?/g) || [];
-    const candidates = candidateNames.slice(0, 5).map(name => ({
-      name,
+    const cleanedQuery = query.replace(/^[•\-\*\s]+/gm, '');
+    
+    const candidateNames = cleanedQuery.match(/[A-Z][a-z]+(?:[ -][A-Z][a-z]+)+/g) || [];
+    
+    console.log("Fallback extraction found candidates:", candidateNames);
+    
+    const uniqueNames = Array.from(new Set(candidateNames.map(n => n.trim())))
+      .filter(n => n.length > 3)
+      .filter(n => !n.includes('\n'));
+    
+    const candidates = uniqueNames.slice(0, 10).map(name => ({
+      name: name.trim(),
       party: "Democratic" as Party,
     }));
     
@@ -331,7 +373,7 @@ Infer party affiliations based on candidate names and context. Use your knowledg
       raceTitle: "Election Scenario Analysis",
       candidates,
       predictions,
-      analysis: "This analysis examines the electoral prospects of the candidates mentioned. Each candidate's viability is assessed based on multiple factors including polling performance, fundraising strength, name recognition, demographic alignment, endorsement support, and historical voting trends.",
+      analysis: "This analysis examines the electoral prospects of the candidates mentioned. Each candidate's viability is assessed based on multiple factors including polling performance, fundraising strength, name recognition, demographic alignment, endorsement support, and historical voting trends in similar competitive races.",
     };
   }
 }
