@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShareButton } from "./ShareButton";
 import type { Race, RaceType } from "@shared/schema";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface RaceCardProps {
@@ -11,6 +11,8 @@ interface RaceCardProps {
   leadingCandidate?: string;
   leadingProbability?: number;
   candidateCount?: number;
+  onDelete?: (id: string) => void;
+  deleteDisabled?: boolean;
 }
 
 const raceTypeColors: Record<RaceType, string> = {
@@ -21,7 +23,7 @@ const raceTypeColors: Record<RaceType, string> = {
   Local: "bg-chart-5 text-white",
 };
 
-export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount }: RaceCardProps) {
+export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled }: RaceCardProps) {
   return (
     <Card className="hover-elevate transition-all" data-testid={`card-race-${race.id}`}>
       <CardHeader className="pb-3">
@@ -30,6 +32,20 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
             <Badge className={`${raceTypeColors[race.type]} mb-2`}>{race.type}</Badge>
             <CardTitle className="text-lg truncate">{race.title}</CardTitle>
           </div>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              data-testid={`button-delete-race-${race.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                onDelete(race.id);
+              }}
+              disabled={deleteDisabled}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

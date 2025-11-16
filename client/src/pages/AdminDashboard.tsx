@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +23,7 @@ interface RaceWithPredictions {
 export default function AdminDashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: racesData, isLoading } = useQuery<RaceWithPredictions[]>({
     queryKey: ["/api/races"],
@@ -28,6 +31,23 @@ export default function AdminDashboard() {
 
   const { data: featuredMatchups = [], isLoading: loadingFeatured } = useQuery<FeaturedMatchup[]>({
     queryKey: ["/api/featured-matchups"],
+  });
+
+  const deleteRaceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/admin/races/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      toast({ title: "Race deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
   });
 
   const filteredRaces = racesData?.filter(
@@ -211,6 +231,8 @@ export default function AdminDashboard() {
                     leadingCandidate={leadingCandidate?.name}
                     leadingProbability={leadingPrediction?.winProbability}
                     candidateCount={candidates.length}
+                    onDelete={(id) => deleteRaceMutation.mutate(id)}
+                    deleteDisabled={deleteRaceMutation.isPending}
                   />
                 );
               })}
