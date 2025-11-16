@@ -43,9 +43,9 @@
   --chart-3: 15 70% 48%;
   --chart-4: 280 70% 45%;
   --chart-5: 160 65% 40%;
-  --font-sans: Open Sans, sans-serif;
+  --font-sans: IBM Plex Sans, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
+  --font-mono: IBM Plex Mono, monospace;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(220 10% 50% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(220 10% 50% / 0.00);

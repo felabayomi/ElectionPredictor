@@ -81,6 +81,18 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        democrat: {
+          DEFAULT: "rgb(59 130 246)",
+          foreground: "rgb(255 255 255)",
+        },
+        republican: {
+          DEFAULT: "rgb(239 68 68)",
+          foreground: "rgb(255 255 255)",
+        },
+        independent: {
+          DEFAULT: "rgb(139 92 246)",
+          foreground: "rgb(255 255 255)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
