@@ -33,6 +33,23 @@ export default function AdminDashboard() {
     queryKey: ["/api/featured-matchups"],
   });
 
+  const updateRaceMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      return apiRequest("PUT", `/api/admin/races/${id}`, { title });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      toast({ title: "Race title updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   const deleteRaceMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/admin/races/${id}`);
@@ -231,6 +248,8 @@ export default function AdminDashboard() {
                     leadingCandidate={leadingCandidate?.name}
                     leadingProbability={leadingPrediction?.winProbability}
                     candidateCount={candidates.length}
+                    onEdit={(id, title) => updateRaceMutation.mutate({ id, title })}
+                    editDisabled={updateRaceMutation.isPending}
                     onDelete={(id) => deleteRaceMutation.mutate(id)}
                     deleteDisabled={deleteRaceMutation.isPending}
                   />

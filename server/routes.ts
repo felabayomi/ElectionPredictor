@@ -66,6 +66,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/admin/races/:id", async (req, res) => {
+    try {
+      const race = await storage.updateRace(req.params.id, req.body);
+      res.json(race);
+    } catch (error) {
+      console.error("Error updating race:", error);
+      res.status(500).json({ error: "Failed to update race" });
+    }
+  });
+
   app.delete("/api/admin/races/:id", async (req, res) => {
     try {
       await storage.deleteRace(req.params.id);

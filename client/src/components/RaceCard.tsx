@@ -1,9 +1,20 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShareButton } from "./ShareButton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { Race, RaceType } from "@shared/schema";
-import { Calendar, MapPin, Trash2 } from "lucide-react";
+import { Calendar, MapPin, Trash2, Pencil } from "lucide-react";
 import { Link } from "wouter";
 
 interface RaceCardProps {
@@ -13,6 +24,8 @@ interface RaceCardProps {
   candidateCount?: number;
   onDelete?: (id: string) => void;
   deleteDisabled?: boolean;
+  onEdit?: (id: string, title: string) => void;
+  editDisabled?: boolean;
 }
 
 const raceTypeColors: Record<RaceType, string> = {
@@ -23,31 +36,59 @@ const raceTypeColors: Record<RaceType, string> = {
   Local: "bg-chart-5 text-white",
 };
 
-export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled }: RaceCardProps) {
+export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled, onEdit, editDisabled }: RaceCardProps) {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(race.title);
+
+  const handleSaveEdit = () => {
+    if (onEdit && editedTitle.trim()) {
+      onEdit(race.id, editedTitle.trim());
+      setIsEditDialogOpen(false);
+    }
+  };
+
   return (
-    <Card className="hover-elevate transition-all" data-testid={`card-race-${race.id}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <Badge className={`${raceTypeColors[race.type]} mb-2`}>{race.type}</Badge>
-            <CardTitle className="text-lg truncate">{race.title}</CardTitle>
+    <>
+      <Card className="hover-elevate transition-all" data-testid={`card-race-${race.id}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <Badge className={`${raceTypeColors[race.type]} mb-2`}>{race.type}</Badge>
+              <CardTitle className="text-lg truncate">{race.title}</CardTitle>
+            </div>
+            <div className="flex gap-1">
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  data-testid={`button-edit-race-${race.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditedTitle(race.title);
+                    setIsEditDialogOpen(true);
+                  }}
+                  disabled={editDisabled}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  data-testid={`button-delete-race-${race.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onDelete(race.id);
+                  }}
+                  disabled={deleteDisabled}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
-          {onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              data-testid={`button-delete-race-${race.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                onDelete(race.id);
-              }}
-              disabled={deleteDisabled}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+        </CardHeader>
       <CardContent className="space-y-3">
         {(race.state || race.district) && (
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -98,5 +139,37 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Race Title</DialogTitle>
+          <DialogDescription>
+            Update the title for this race. Make it clear and descriptive.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Race Title</Label>
+            <Input
+              id="title"
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              placeholder="e.g., 2028 New York Senate Race"
+              data-testid="input-edit-race-title"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveEdit} disabled={!editedTitle.trim() || editDisabled} data-testid="button-save-edit">
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
