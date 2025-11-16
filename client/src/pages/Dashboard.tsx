@@ -158,7 +158,7 @@ export default function Dashboard() {
             <Card className="bg-muted/50">
               <CardContent className="py-8 text-center">
                 <p className="text-muted-foreground">
-                  No featured matchups yet. Create them in <strong>Admin → Manage Featured Matchups</strong>
+                  No featured matchups yet.
                 </p>
               </CardContent>
             </Card>
