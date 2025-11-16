@@ -256,7 +256,9 @@ export async function analyzeNaturalLanguageQuery(query: string): Promise<{
 Query: "${query}"
 
 Instructions:
-1. Extract the race/position being discussed (e.g., "2028 New York Senate Race")
+1. Create a specific race title in this format: "[YEAR] [STATE/LOCATION] [POSITION] Race" 
+   - Examples: "2028 New York Senate Race", "2026 Texas Governor Race", "2024 California Democratic Primary"
+   - Be specific and descriptive, NOT generic like "Election Scenario Analysis"
 2. Extract ONLY the candidate names who are COMPETING for this position
    - DO NOT include politicians who are retiring or stepping down
    - DO NOT include race names or locations as candidates
@@ -267,15 +269,17 @@ Instructions:
 
 EXAMPLES OF CORRECT EXTRACTION:
 Query: "Who would win if Chuck Schumer retires? Consider: Alexandria Ocasio-Cortez, Letitia James, Pat Ryan"
+→ Race Title: "2028 New York Senate Race"
 → Candidates: ["Alexandria Ocasio-Cortez", "Letitia James", "Pat Ryan"]
 → NOT: ["Chuck Schumer", "New York Senate"]
 
 Query: "Adam Schiff, Katie Porter, Barbara Lee, Eric Swalwell race for California Senate"
+→ Race Title: "2024 California Senate Race"
 → Candidates: ["Adam Schiff", "Katie Porter", "Barbara Lee", "Eric Swalwell"]
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "raceTitle": "descriptive race title",
+  "raceTitle": "YEAR STATE/LOCATION POSITION Race (e.g., 2028 New York Senate Race)",
   "candidates": [
     { "name": "Full Name", "party": "Democratic" },
     { "name": "Another Name", "party": "Republican" }
