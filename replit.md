@@ -10,6 +10,24 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 16, 2025** - PostgreSQL Database Migration & Clean Deployment (COMPLETED ✅):
+- **Database Migration**: Migrated from in-memory storage to PostgreSQL for production deployment
+  - Created Drizzle ORM schema with tables: `races`, `candidates`, `predictions`, `race_candidates`, `featured_matchups`
+  - Implemented `DbStorage` class using Neon PostgreSQL serverless database
+  - All data now persists across server restarts and deployments
+  - Database schema uses VARCHAR primary keys with UUID generation for collision-free IDs
+  
+- **Seed Data Removal**: Removed all mock/seed data for clean production deployment
+  - App starts completely empty - no hypothetical races or fictional politicians
+  - Admin interface ready for creating real races, candidates, and predictions
+  - Public dashboard filters out incomplete races (must have candidates AND predictions to display)
+  
+- **Data Integrity**:
+  - Foreign key relationships enforce data consistency (cascade deletes)
+  - Junction table `race_candidates` properly links candidates to races
+  - Predictions table uses composite primary key (raceId, candidateId)
+  - Dashboard filtering ensures only complete races with candidates and predictions are shown publicly
+
 **November 16, 2025** - Social Media Sharing Feature (COMPLETED ✅):
 - **Share Buttons**: Added social sharing functionality throughout the app
   - Uses Web Share API (native mobile sharing) when available on mobile devices
@@ -105,9 +123,12 @@ Preferred communication style: Simple, everyday language.
 - RESTful API design for race, candidate, and prediction data
 
 **Data Layer:**
-- In-memory storage implementation (MemStorage class) for development
-- Schema definitions in `/shared/schema.ts` using Drizzle ORM types
-- Drizzle Kit configured for PostgreSQL migration support (production-ready)
+- PostgreSQL database using Neon serverless database (production)
+- Drizzle ORM for type-safe database queries and schema management
+- DbStorage class implements IStorage interface using async Drizzle operations
+- Schema definitions in `/shared/schema.ts` with pgTable definitions
+- Database tables: races, candidates, predictions, race_candidates (junction), featured_matchups
+- All primary keys use VARCHAR with UUID generation for collision-free distributed IDs
 - Shared TypeScript types between frontend and backend for consistency
 
 **API Endpoints:**

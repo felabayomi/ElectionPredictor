@@ -30,7 +30,10 @@ export default function Dashboard() {
   });
 
   const filteredRaces = racesData?.filter(
-    (item) => selectedRaceType === "All" || item.race.type === selectedRaceType
+    (item) => 
+      (selectedRaceType === "All" || item.race.type === selectedRaceType) &&
+      item.candidates.length > 0 &&
+      item.predictions.length > 0
   );
 
   const getFeaturedRaces = () => {
