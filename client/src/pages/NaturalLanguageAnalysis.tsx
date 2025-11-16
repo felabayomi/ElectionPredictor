@@ -3,17 +3,14 @@ import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { CandidateCard } from "@/components/CandidateCard";
-import { ShareButton } from "@/components/ShareButton";
-import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, Prediction } from "@shared/schema";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface AnalysisResult {
+  raceId: string;
   query: string;
   raceTitle: string;
   candidates: Candidate[];
@@ -23,8 +20,8 @@ interface AnalysisResult {
 
 export default function NaturalLanguageAnalysis() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState<AnalysisResult | null>(null);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -40,11 +37,14 @@ export default function NaturalLanguageAnalysis() {
       return data;
     },
     onSuccess: (data) => {
-      setResult(data);
       toast({
         title: "Analysis Complete",
-        description: `Found ${data.candidates?.length || 0} candidates in your query.`,
+        description: `Saved race with ${data.candidates?.length || 0} candidates. Redirecting...`,
       });
+      
+      setTimeout(() => {
+        setLocation(`/race/${data.raceId}`);
+      }, 1000);
     },
     onError: (error) => {
       console.error("Natural language analysis error:", error);
@@ -186,71 +186,12 @@ export default function NaturalLanguageAnalysis() {
         </Card>
 
         {analyzeMutation.isPending && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-64" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-20 w-full" />
-              </CardContent>
-            </Card>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-80" />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {result && !analyzeMutation.isPending && result.candidates && result.candidates.length > 0 && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 flex-wrap space-y-0 pb-3">
-                <div className="flex-1 space-y-2">
-                  <CardTitle>{result.raceTitle}</CardTitle>
-                  <Badge className="w-fit">AI-Powered Analysis</Badge>
-                </div>
-                <ShareButton
-                  url={typeof window !== 'undefined' ? window.location.href : ''}
-                  title={result.raceTitle}
-                  text={`🤖 ${result.raceTitle}: AI predicted ${result.candidates.length} candidates. Top: ${result.candidates.sort((a, b) => {
-                    const predA = result.predictions.find(p => p.candidateId === a.id);
-                    const predB = result.predictions.find(p => p.candidateId === b.id);
-                    return (predB?.winProbability || 0) - (predA?.winProbability || 0);
-                  })[0]?.name} with ${Math.round(result.predictions.sort((a, b) => b.winProbability - a.winProbability)[0]?.winProbability || 0)}% win probability. See the full AI-powered analysis!`}
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">Your Question:</h3>
-                    <p className="text-sm text-muted-foreground italic">{result.query}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">Analysis:</h3>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{result.analysis}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold">
-                Predicted Outcomes ({result.candidates.length} candidates)
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {result.candidates
-                  .map((candidate) => ({
-                    candidate,
-                    prediction: result.predictions.find((p) => p.candidateId === candidate.id),
-                  }))
-                  .sort((a, b) => (b.prediction?.winProbability || 0) - (a.prediction?.winProbability || 0))
-                  .map(({ candidate, prediction }) => (
-                    <CandidateCard key={candidate.id} candidate={candidate} prediction={prediction} />
-                  ))}
-              </div>
-            </div>
+          <div className="text-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+            <h3 className="text-lg font-semibold mb-2">Analyzing Your Question...</h3>
+            <p className="text-sm text-muted-foreground">
+              Our AI is processing your query and generating predictions. This may take a moment.
+            </p>
           </div>
         )}
       </main>

@@ -426,6 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "Senate",
         title: result.raceTitle,
         electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        description: `AI-generated analysis from query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`,
       };
 
       const candidates: Candidate[] = normalizedCandidates.map((c) => ({
@@ -471,7 +472,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
+      await storage.createRace(race);
+      
+      for (const candidate of candidates) {
+        await storage.createCandidate(candidate, race.id);
+      }
+      
+      for (const prediction of predictions) {
+        await storage.createPrediction(prediction);
+      }
+
       res.json({
+        raceId: race.id,
         query,
         raceTitle: result.raceTitle,
         candidates,

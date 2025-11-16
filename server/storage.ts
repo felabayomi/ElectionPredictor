@@ -31,6 +31,7 @@ export interface IStorage {
   
   getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined>;
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
+  createPrediction(prediction: Prediction): Promise<void>;
   
   getAllFeaturedMatchups(): Promise<FeaturedMatchup[]>;
   createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup>;
@@ -279,6 +280,20 @@ export class DbStorage implements IStorage {
       methodology: p.methodology,
       aiAnalysis: p.aiAnalysis || undefined,
     }));
+  }
+
+  async createPrediction(prediction: Prediction): Promise<void> {
+    const { predictions } = await import("@shared/schema");
+    await this.db.insert(predictions).values({
+      raceId: prediction.raceId,
+      candidateId: prediction.candidateId,
+      winProbability: prediction.winProbability,
+      confidenceIntervalLow: prediction.confidenceInterval.low,
+      confidenceIntervalHigh: prediction.confidenceInterval.high,
+      factors: prediction.factors,
+      methodology: prediction.methodology,
+      aiAnalysis: prediction.aiAnalysis,
+    });
   }
 
   async getAllFeaturedMatchups(): Promise<FeaturedMatchup[]> {
