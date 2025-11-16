@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ComparisonPanel } from "@/components/ComparisonPanel";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Party, ComparisonResult } from "@shared/schema";
-import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface CustomCandidate {
@@ -17,6 +18,7 @@ interface CustomCandidate {
 }
 
 export default function CustomPrediction() {
+  const { toast } = useToast();
   const [candidates, setCandidates] = useState<CustomCandidate[]>([
     { name: "", party: "Democratic" },
     { name: "", party: "Republican" },
@@ -26,9 +28,13 @@ export default function CustomPrediction() {
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
-      const validCandidates = candidates.filter((c) => c.name.trim());
-      if (validCandidates.length < 2) {
-        throw new Error("Please enter at least 2 candidates");
+      const validCandidates = candidates.filter((c) => c.name.trim()).map(c => ({
+        name: c.name.trim(),
+        party: c.party
+      }));
+      
+      if (validCandidates.length !== 2) {
+        throw new Error("Please enter exactly 2 candidates");
       }
 
       const result = await apiRequest<ComparisonResult>(
@@ -36,25 +42,27 @@ export default function CustomPrediction() {
         "/api/custom-prediction",
         {
           candidates: validCandidates,
-          raceTitle: raceTitle || "Custom Race Analysis",
+          raceTitle: raceTitle.trim() || "Custom Race Analysis",
         }
       );
       return result;
     },
     onSuccess: (data) => {
       setComparisonResult(data);
+      toast({
+        title: "Analysis Complete",
+        description: "Your custom prediction has been generated successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error("Custom prediction error:", error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to generate prediction. Please try again.",
+        variant: "destructive",
+      });
     },
   });
-
-  const addCandidate = () => {
-    setCandidates([...candidates, { name: "", party: "Democratic" }]);
-  };
-
-  const removeCandidate = (index: number) => {
-    if (candidates.length > 2) {
-      setCandidates(candidates.filter((_, i) => i !== index));
-    }
-  };
 
   const updateCandidate = (index: number, field: keyof CustomCandidate, value: string) => {
     const updated = [...candidates];
@@ -106,13 +114,7 @@ export default function CustomPrediction() {
 
         <Card className="mb-8">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Candidates</CardTitle>
-              <Button onClick={addCandidate} size="sm" data-testid="button-add-candidate">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Candidate
-              </Button>
-            </div>
+            <CardTitle>Candidates (Head-to-Head Comparison)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -120,7 +122,7 @@ export default function CustomPrediction() {
                 <div key={index} className="flex items-center gap-3">
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input
-                      placeholder="Candidate name"
+                      placeholder={`Candidate ${index + 1} name`}
                       value={candidate.name}
                       onChange={(e) => updateCandidate(index, "name", e.target.value)}
                       data-testid={`input-candidate-name-${index}`}
@@ -150,16 +152,6 @@ export default function CustomPrediction() {
                   >
                     {candidate.party.charAt(0)}
                   </Badge>
-                  {candidates.length > 2 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeCandidate(index)}
-                      data-testid={`button-remove-${index}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               ))}
             </div>

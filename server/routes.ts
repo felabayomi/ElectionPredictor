@@ -229,43 +229,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { candidates, raceTitle } = req.body;
 
-      if (!candidates || !Array.isArray(candidates) || candidates.length < 2) {
-        return res.status(400).json({ error: "At least 2 candidates are required" });
+      if (!candidates || !Array.isArray(candidates)) {
+        return res.status(400).json({ error: "Candidates array is required" });
       }
 
-      const validCandidates = candidates.filter((c: any) => c.name && c.party);
-      if (validCandidates.length < 2) {
-        return res.status(400).json({ error: "Invalid candidate data" });
+      const normalizedCandidates = candidates
+        .map((c: any) => ({
+          name: c.name?.trim(),
+          party: c.party
+        }))
+        .filter((c: any) => c.name && c.party);
+
+      if (normalizedCandidates.length !== 2) {
+        return res.status(400).json({ error: "Exactly 2 candidates are required for head-to-head comparison" });
       }
 
-      const result = await generateCustomPrediction(validCandidates, raceTitle || "Custom Race");
+      const candidateNames = normalizedCandidates.map((c: any) => c.name);
+      if (candidateNames[0].toLowerCase() === candidateNames[1].toLowerCase()) {
+        return res.status(400).json({ error: "Candidates must be different" });
+      }
+
+      const result = await generateCustomPrediction(normalizedCandidates, raceTitle?.trim() || "Custom Race");
 
       const raceId = randomUUID();
       const race: Race = {
         id: raceId,
         type: "Senate",
-        title: raceTitle || "Custom Race Analysis",
+        title: (raceTitle?.trim() || "Custom Race Analysis"),
         electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       };
 
-      const customCandidates: Candidate[] = validCandidates.map((c: any) => ({
+      const customCandidates: Candidate[] = normalizedCandidates.map((c: any) => ({
         id: randomUUID(),
         name: c.name,
         party: c.party as Party,
       }));
 
       const predictions: Prediction[] = customCandidates.map((candidate) => {
-        const predData = result.predictions[candidate.name] || {
-          probability: 50,
-          factors: {
-            polling: 50,
-            fundraising: 50,
-            nameRecognition: 50,
-            demographics: 50,
-            endorsements: 50,
-            historicalTrends: 50,
-          },
-        };
+        const predData = result.predictions[candidate.name];
+        
+        if (!predData) {
+          console.warn(`No prediction data found for candidate: ${candidate.name}, using defaults`);
+          return {
+            raceId: race.id,
+            candidateId: candidate.id,
+            winProbability: 50,
+            confidenceInterval: { low: 40, high: 60 },
+            factors: {
+              polling: 50,
+              fundraising: 50,
+              nameRecognition: 50,
+              demographics: 50,
+              endorsements: 50,
+              historicalTrends: 50,
+            },
+            lastUpdated: new Date().toISOString(),
+            methodology: "AI-powered custom prediction analysis (default values)",
+          };
+        }
 
         return {
           raceId: race.id,
@@ -337,15 +358,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { query } = req.body;
 
-      if (!query || typeof query !== "string") {
+      if (!query || typeof query !== "string" || !query.trim()) {
         return res.status(400).json({ error: "Query is required" });
       }
 
-      const result = await analyzeNaturalLanguageQuery(query);
+      const result = await analyzeNaturalLanguageQuery(query.trim());
 
       if (!result.candidates || result.candidates.length === 0) {
-        return res.status(400).json({ error: "Could not extract candidates from query" });
+        return res.status(400).json({ error: "Could not extract candidates from query. Please include candidate names in your question." });
       }
+
+      const normalizedCandidates = result.candidates.map(c => ({
+        ...c,
+        name: c.name.trim()
+      }));
 
       const raceId = randomUUID();
       const race: Race = {
@@ -355,24 +381,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       };
 
-      const candidates: Candidate[] = result.candidates.map((c) => ({
+      const candidates: Candidate[] = normalizedCandidates.map((c) => ({
         id: randomUUID(),
         name: c.name,
         party: c.party,
       }));
 
       const predictions: Prediction[] = candidates.map((candidate) => {
-        const predData = result.predictions[candidate.name] || {
-          probability: 50,
-          factors: {
-            polling: 50,
-            fundraising: 50,
-            nameRecognition: 50,
-            demographics: 50,
-            endorsements: 50,
-            historicalTrends: 50,
-          },
-        };
+        const predData = result.predictions[candidate.name];
+        
+        if (!predData) {
+          console.warn(`No prediction data found for candidate: ${candidate.name}, using defaults`);
+          return {
+            raceId: race.id,
+            candidateId: candidate.id,
+            winProbability: 50,
+            confidenceInterval: { low: 40, high: 60 },
+            factors: {
+              polling: 50,
+              fundraising: 50,
+              nameRecognition: 50,
+              demographics: 50,
+              endorsements: 50,
+              historicalTrends: 50,
+            },
+            lastUpdated: new Date().toISOString(),
+            methodology: "AI-powered natural language analysis (default values)",
+          };
+        }
 
         return {
           raceId: race.id,

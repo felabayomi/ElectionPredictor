@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CandidateCard } from "@/components/CandidateCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Candidate, Prediction } from "@shared/schema";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { Link } from "wouter";
@@ -20,6 +21,7 @@ interface AnalysisResult {
 }
 
 export default function NaturalLanguageAnalysis() {
+  const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
@@ -38,6 +40,18 @@ export default function NaturalLanguageAnalysis() {
     },
     onSuccess: (data) => {
       setResult(data);
+      toast({
+        title: "Analysis Complete",
+        description: `Found ${data.candidates.length} candidates in your query.`,
+      });
+    },
+    onError: (error) => {
+      console.error("Natural language analysis error:", error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze your question. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
