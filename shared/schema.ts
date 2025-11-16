@@ -74,11 +74,9 @@ export type RaceType = "Presidential" | "Senate" | "House" | "Governor" | "Local
 
 export interface PredictionFactors {
   polling: number;
-  fundraising: number;
-  nameRecognition: number;
   demographics: number;
-  endorsements: number;
-  historicalTrends: number;
+  nameRecognition: number;
+  candidateExperience: number;
 }
 
 export interface Candidate {

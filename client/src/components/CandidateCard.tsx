@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PartyBadge } from "./PartyBadge";
 import { ProbabilityBar } from "./ProbabilityBar";
 import type { Candidate, Prediction } from "@shared/schema";
-import { TrendingUp, DollarSign, Users, MapPin } from "lucide-react";
+import { TrendingUp, Briefcase, Users, MapPin } from "lucide-react";
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -95,10 +95,10 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <DollarSign className="h-3 w-3" />
-                <span>Fundraising</span>
+                <MapPin className="h-3 w-3" />
+                <span>Demographics</span>
               </div>
-              <p className="font-mono text-sm font-semibold">{prediction.factors.fundraising.toFixed(1)}</p>
+              <p className="font-mono text-sm font-semibold">{prediction.factors.demographics.toFixed(1)}</p>
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -109,10 +109,10 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span>Demographics</span>
+                <Briefcase className="h-3 w-3" />
+                <span>Experience</span>
               </div>
-              <p className="font-mono text-sm font-semibold">{prediction.factors.demographics.toFixed(1)}</p>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.candidateExperience || 0).toFixed(1)}</p>
             </div>
           </div>
 

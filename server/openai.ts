@@ -40,7 +40,7 @@ Keep the tone professional, neutral, and data-focused like FiveThirtyEight.`;
     return response.choices[0]?.message?.content || "Analysis unavailable.";
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return "AI analysis temporarily unavailable. The prediction is based on statistical modeling of polling, fundraising, name recognition, demographics, endorsements, and historical trends.";
+    return "Analysis temporarily unavailable. The prediction is based on statistical modeling of polling, demographics, name recognition, and candidate experience.";
   }
 }
 
@@ -57,23 +57,23 @@ Race: ${raceTitle}
 Candidates:
 ${candidates.map((c, i) => `${i + 1}. ${c.name} (${c.party})`).join('\n')}
 
-Generate realistic win probabilities and factor scores for each candidate. Return a JSON object with:
+Generate realistic win probabilities and factor scores for each candidate using ONLY public information. Return a JSON object with:
 {
   "predictions": {
     "candidate_name": {
       "probability": number (0-100),
       "factors": {
-        "polling": number (0-100),
-        "fundraising": number (0-100),
-        "nameRecognition": number (0-100),
-        "demographics": number (0-100),
-        "endorsements": number (0-100),
-        "historicalTrends": number (0-100)
+        "polling": number (0-100) - Public polls and poll aggregations,
+        "demographics": number (0-100) - District demographics, PVI, partisan lean,
+        "nameRecognition": number (0-100) - Media mentions, Google Trends, social media,
+        "candidateExperience": number (0-100) - Incumbent status, offices held, public background
       }
     }
   },
   "analysis": "3-4 paragraph analysis explaining the race dynamics and key factors"
 }
+
+Use NO fundraising data. Base predictions entirely on: polling, demographics/partisan lean, name recognition/public awareness, and candidate experience/background strength.
 
 Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
 
@@ -105,18 +105,16 @@ Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
         probability: Math.max(5, Math.min(95, baseProb + variance)),
         factors: {
           polling: 40 + Math.random() * 40,
-          fundraising: 40 + Math.random() * 40,
-          nameRecognition: 40 + Math.random() * 40,
           demographics: 40 + Math.random() * 40,
-          endorsements: 40 + Math.random() * 40,
-          historicalTrends: 40 + Math.random() * 40,
+          nameRecognition: 40 + Math.random() * 40,
+          candidateExperience: 40 + Math.random() * 40,
         },
       };
     });
     
     return {
       predictions: fallbackPredictions,
-      analysis: "Prediction analysis based on statistical modeling. Each candidate's viability depends on polling strength, fundraising capacity, name recognition, demographic alignment, endorsements, and historical voting patterns in similar races.",
+      analysis: "Prediction analysis based on statistical modeling using publicly available data. Each candidate's viability depends on polling strength, demographic alignment, name recognition, and candidate experience.",
     };
   }
 }
@@ -282,11 +280,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
       "probability": 35,
       "factors": {
         "polling": 65,
-        "fundraising": 70,
-        "nameRecognition": 85,
         "demographics": 60,
-        "endorsements": 55,
-        "historicalTrends": 50
+        "nameRecognition": 85,
+        "candidateExperience": 70
       }
     }
   },
@@ -376,11 +372,9 @@ Probabilities must sum to ~100.`;
         probability: Math.max(5, Math.min(95, baseProb + variance)),
         factors: {
           polling: 40 + Math.random() * 40,
-          fundraising: 40 + Math.random() * 40,
-          nameRecognition: 40 + Math.random() * 40,
           demographics: 40 + Math.random() * 40,
-          endorsements: 40 + Math.random() * 40,
-          historicalTrends: 40 + Math.random() * 40,
+          nameRecognition: 40 + Math.random() * 40,
+          candidateExperience: 40 + Math.random() * 40,
         },
       };
     });

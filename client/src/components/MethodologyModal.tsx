@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TrendingUp, DollarSign, Users, MapPin, Award, Clock } from "lucide-react";
+import { TrendingUp, Briefcase, Users, MapPin } from "lucide-react";
 
 interface MethodologyModalProps {
   open: boolean;
@@ -16,39 +16,27 @@ export function MethodologyModal({ open, onOpenChange }: MethodologyModalProps) 
   const factors = [
     {
       icon: TrendingUp,
-      name: "Polling Average",
-      weight: "35%",
-      description: "Aggregated polling data from reputable sources, weighted by sample size and recency.",
-    },
-    {
-      icon: DollarSign,
-      name: "Fundraising",
-      weight: "20%",
-      description: "Campaign fundraising totals, indicating financial resources and donor support.",
-    },
-    {
-      icon: Users,
-      name: "Name Recognition",
-      weight: "15%",
-      description: "Public awareness and familiarity with the candidate based on search trends and media coverage.",
+      name: "Polling",
+      weight: "Most Predictive",
+      description: "Public polls, poll aggregations, and internal polls if publicly released. The most direct indicator of voter preference at any stage of the race.",
     },
     {
       icon: MapPin,
-      name: "Demographics",
-      weight: "15%",
-      description: "Demographic alignment between candidate support base and district/state composition.",
+      name: "Demographics / Partisan Lean",
+      weight: "Extremely Important",
+      description: "Underlying voting tendencies based on race/ethnicity, education, urban/suburban/rural splits, Partisan Voting Index (PVI), and past statewide results. Especially predictive early in races.",
     },
     {
-      icon: Award,
-      name: "Endorsements",
-      weight: "10%",
-      description: "Quality and quantity of endorsements from elected officials, organizations, and influential figures.",
+      icon: Users,
+      name: "Name Recognition / Public Awareness",
+      weight: "High Impact",
+      description: "Media mentions, Google Trends, social media following, public familiarity surveys, and endorsement visibility—all from publicly available sources.",
     },
     {
-      icon: Clock,
-      name: "Historical Trends",
-      weight: "5%",
-      description: "Historical voting patterns in the district/state and similar demographic areas.",
+      icon: Briefcase,
+      name: "Candidate Experience / Background",
+      weight: "Structural Factor",
+      description: "Incumbent vs. challenger status, elected offices held, government/military background, and candidate quality indicators. Based entirely on public records.",
     },
   ];
 
@@ -66,7 +54,7 @@ export function MethodologyModal({ open, onOpenChange }: MethodologyModalProps) 
           <div>
             <h3 className="font-semibold text-lg mb-2">How It Works</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Our model combines traditional statistical analysis with advanced AI to evaluate candidate performance across six key factors. Each factor is weighted based on its historical correlation with election outcomes. The AI component analyzes complex interactions between factors that simple statistical models might miss.
+              Our model evaluates candidate performance across four key public-information factors. These factors require no campaign finance data and rely entirely on publicly available information such as polls, census data, media coverage, and public records.
             </p>
           </div>
 
@@ -103,7 +91,7 @@ export function MethodologyModal({ open, onOpenChange }: MethodologyModalProps) 
           <div>
             <h3 className="font-semibold text-lg mb-2">Data Sources</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Predictions are based on publicly available data including poll aggregators, FEC filings, census data, and historical election results. Data is updated regularly to reflect the latest information.
+              Predictions are based entirely on publicly available data: poll aggregators, census demographics, media coverage metrics, social media analytics, and public official records. No campaign fundraising data is required or used.
             </p>
           </div>
 

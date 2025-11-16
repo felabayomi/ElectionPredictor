@@ -140,20 +140,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorKeys: (keyof PredictionFactors)[] = [
         "polling",
-        "fundraising",
-        "nameRecognition",
         "demographics",
-        "endorsements",
-        "historicalTrends",
+        "nameRecognition",
+        "candidateExperience",
       ];
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
         polling: "Polling Average",
-        fundraising: "Fundraising",
+        demographics: "Demographics / Partisan Lean",
         nameRecognition: "Name Recognition",
-        demographics: "Demographics",
-        endorsements: "Endorsements",
-        historicalTrends: "Historical Trends",
+        candidateExperience: "Candidate Experience",
       };
 
       const factorComparison = factorKeys.map((factor) => {
@@ -212,20 +208,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorKeys: (keyof PredictionFactors)[] = [
         "polling",
-        "fundraising",
-        "nameRecognition",
         "demographics",
-        "endorsements",
-        "historicalTrends",
+        "nameRecognition",
+        "candidateExperience",
       ];
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
         polling: "Polling Average",
-        fundraising: "Fundraising",
+        demographics: "Demographics / Partisan Lean",
         nameRecognition: "Name Recognition",
-        demographics: "Demographics",
-        endorsements: "Endorsements",
-        historicalTrends: "Historical Trends",
+        candidateExperience: "Candidate Experience",
       };
 
       const factorComparison = factorKeys.map((factor) => {
@@ -319,11 +311,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             confidenceInterval: { low: 40, high: 60 },
             factors: {
               polling: 50,
-              fundraising: 50,
-              nameRecognition: 50,
               demographics: 50,
-              endorsements: 50,
-              historicalTrends: 50,
+              nameRecognition: 50,
+              candidateExperience: 50,
             },
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered custom prediction analysis (default values)",
@@ -354,20 +344,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorKeys: (keyof PredictionFactors)[] = [
         "polling",
-        "fundraising",
-        "nameRecognition",
         "demographics",
-        "endorsements",
-        "historicalTrends",
+        "nameRecognition",
+        "candidateExperience",
       ];
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
         polling: "Polling Average",
-        fundraising: "Fundraising",
+        demographics: "Demographics / Partisan Lean",
         nameRecognition: "Name Recognition",
-        demographics: "Demographics",
-        endorsements: "Endorsements",
-        historicalTrends: "Historical Trends",
+        candidateExperience: "Candidate Experience",
       };
 
       const factorComparison = factorKeys.map((factor) => {
@@ -447,11 +433,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             confidenceInterval: { low: 40, high: 60 },
             factors: {
               polling: 50,
-              fundraising: 50,
-              nameRecognition: 50,
               demographics: 50,
-              endorsements: 50,
-              historicalTrends: 50,
+              nameRecognition: 50,
+              candidateExperience: 50,
             },
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered natural language analysis (default values)",
