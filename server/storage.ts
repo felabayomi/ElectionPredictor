@@ -6,6 +6,8 @@ import type {
   Prediction,
   PredictionFactors,
   Party,
+  FeaturedMatchup,
+  InsertFeaturedMatchup,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -21,9 +23,15 @@ export interface IStorage {
   
   getAllRaces(): Promise<Race[]>;
   getRace(id: string): Promise<Race | undefined>;
+  incrementRaceViews(raceId: string): Promise<void>;
   
   getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined>;
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
+  
+  getAllFeaturedMatchups(): Promise<FeaturedMatchup[]>;
+  createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup>;
+  deleteFeaturedMatchup(id: string): Promise<void>;
+  updateFeaturedMatchupOrder(id: string, newOrder: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -32,6 +40,7 @@ export class MemStorage implements IStorage {
   private races: Map<string, Race>;
   private predictions: Map<string, Prediction>;
   private candidateRaceMapping: Map<string, string[]>;
+  private featuredMatchups: Map<string, FeaturedMatchup>;
 
   constructor() {
     this.users = new Map();
@@ -39,6 +48,7 @@ export class MemStorage implements IStorage {
     this.races = new Map();
     this.predictions = new Map();
     this.candidateRaceMapping = new Map();
+    this.featuredMatchups = new Map();
     this.initializeMockData();
   }
 
@@ -415,6 +425,46 @@ export class MemStorage implements IStorage {
 
   async getPredictionsByRace(raceId: string): Promise<Prediction[]> {
     return Array.from(this.predictions.values()).filter((p) => p.raceId === raceId);
+  }
+
+  async incrementRaceViews(raceId: string): Promise<void> {
+    const race = this.races.get(raceId);
+    if (race) {
+      race.viewCount = (race.viewCount || 0) + 1;
+      this.races.set(raceId, race);
+    }
+  }
+
+  async getAllFeaturedMatchups(): Promise<FeaturedMatchup[]> {
+    return Array.from(this.featuredMatchups.values()).sort((a, b) => a.displayOrder - b.displayOrder);
+  }
+
+  async createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup> {
+    const id = randomUUID();
+    const existingMatchups = await this.getAllFeaturedMatchups();
+    const displayOrder = matchup.displayOrder ?? existingMatchups.length;
+    
+    const newMatchup: FeaturedMatchup = {
+      ...matchup,
+      id,
+      displayOrder,
+      createdAt: new Date().toISOString(),
+    };
+    
+    this.featuredMatchups.set(id, newMatchup);
+    return newMatchup;
+  }
+
+  async deleteFeaturedMatchup(id: string): Promise<void> {
+    this.featuredMatchups.delete(id);
+  }
+
+  async updateFeaturedMatchupOrder(id: string, newOrder: number): Promise<void> {
+    const matchup = this.featuredMatchups.get(id);
+    if (matchup) {
+      matchup.displayOrder = newOrder;
+      this.featuredMatchups.set(id, matchup);
+    }
   }
 }
 

@@ -48,6 +48,7 @@ export interface Race {
   district?: string;
   electionDate: string;
   description?: string;
+  viewCount?: number;
 }
 
 export interface Prediction {
@@ -77,6 +78,23 @@ export interface ComparisonResult {
   aiInsights: string;
 }
 
+export interface FeaturedMatchup {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface SuggestedMatchup {
+  race: Race;
+  candidates: Candidate[];
+  predictions: Prediction[];
+  reason: string;
+  score: number;
+}
+
 export const insertCandidateSchema = z.object({
   name: z.string().min(1),
   party: z.enum(["Democratic", "Republican", "Independent"]),
@@ -95,5 +113,13 @@ export const insertRaceSchema = z.object({
   description: z.string().optional(),
 });
 
+export const insertFeaturedMatchupSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  url: z.string().min(1),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
 export type InsertCandidate = z.infer<typeof insertCandidateSchema>;
 export type InsertRace = z.infer<typeof insertRaceSchema>;
+export type InsertFeaturedMatchup = z.infer<typeof insertFeaturedMatchupSchema>;
