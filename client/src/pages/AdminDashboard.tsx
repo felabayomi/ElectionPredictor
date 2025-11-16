@@ -23,6 +23,7 @@ interface RaceWithPredictions {
 export default function AdminDashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
+  const [reanalyzingRaceId, setReanalyzingRaceId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: racesData, isLoading } = useQuery<RaceWithPredictions[]>({
@@ -52,16 +53,19 @@ export default function AdminDashboard() {
 
   const reanalyzeRaceMutation = useMutation({
     mutationFn: async (id: string) => {
+      setReanalyzingRaceId(id);
       return apiRequest("POST", `/api/admin/races/${id}/reanalyze`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setReanalyzingRaceId(null);
       toast({ 
         title: "Race reanalyzed successfully",
         description: "Predictions updated based on current political landscape"
       });
     },
     onError: (error: any) => {
+      setReanalyzingRaceId(null);
       toast({ 
         title: "Failed to reanalyze race", 
         description: error.message,
@@ -271,7 +275,7 @@ export default function AdminDashboard() {
                     onEdit={(id, title) => updateRaceMutation.mutate({ id, title })}
                     editDisabled={updateRaceMutation.isPending}
                     onReanalyze={(id) => reanalyzeRaceMutation.mutate(id)}
-                    reanalyzeDisabled={reanalyzeRaceMutation.isPending}
+                    reanalyzeDisabled={reanalyzingRaceId === race.id}
                     onDelete={(id) => deleteRaceMutation.mutate(id)}
                     deleteDisabled={deleteRaceMutation.isPending}
                   />
