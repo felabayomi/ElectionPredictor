@@ -10,6 +10,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 16, 2025** - Social Media Sharing Feature:
+- **Share Buttons**: Added social sharing functionality to race cards and detail pages
+  - Uses Web Share API (native mobile sharing) when available
+  - Fallback to platform-specific share links (X/Twitter, Facebook, LinkedIn, Copy Link)
+  - ShareButton component at `client/src/components/ShareButton.tsx`
+  
+- **Share Text Templates**:
+  - Race cards: "🗳️ [Race Title]: [Candidate] leads with [X]% win probability. See the full AI-powered analysis!"
+  - Race details: Same format with leading candidate data
+  - Comparisons: "⚖️ [Candidate 1] vs [Candidate 2] in [Race Title]: [X]% vs [Y]%. Check out this AI-powered election analysis!"
+  
+- **Locations**:
+  - Dashboard race cards: Share button next to "View Analysis"
+  - Race detail pages: Share button in header (top right)
+  - Comparison panels: Share button in "Head-to-Head Comparison" header
+
 **November 16, 2025** - Race Creation and AI-Powered Intelligent Suggestions:
 - **Custom Race Creation**: Admins can now create new races beyond default seed data
   - POST `/api/admin/races` endpoint with UUID-based IDs (prevents collisions)

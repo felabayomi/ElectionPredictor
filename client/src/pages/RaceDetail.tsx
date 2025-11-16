@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CandidateCard } from "@/components/CandidateCard";
+import { ShareButton } from "@/components/ShareButton";
 import type { Race, Candidate, Prediction } from "@shared/schema";
 import { ArrowLeft, Calendar, MapPin } from "lucide-react";
 
@@ -69,16 +70,27 @@ export default function RaceDetail() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" data-testid="button-back">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold">{race.title}</h1>
-              <p className="text-sm text-muted-foreground">{race.type} Race</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="ghost" size="icon" data-testid="button-back">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold">{race.title}</h1>
+                <p className="text-sm text-muted-foreground">{race.type} Race</p>
+              </div>
             </div>
+            <ShareButton
+              title={race.title}
+              text={candidatesWithPredictions.length > 0 
+                ? `🗳️ ${race.title}: ${candidatesWithPredictions[0]?.candidate.name} leads with ${candidatesWithPredictions[0]?.prediction?.winProbability.toFixed(1)}% win probability. See the full AI-powered analysis!`
+                : `🗳️ Check out the ${race.title} election analysis on ElectionPredict!`}
+              url={typeof window !== 'undefined' ? window.location.href : ''}
+              variant="outline"
+              size="sm"
+            />
           </div>
         </div>
       </header>

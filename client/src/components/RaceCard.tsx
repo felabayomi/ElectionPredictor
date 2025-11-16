@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ShareButton } from "./ShareButton";
 import type { Race, RaceType } from "@shared/schema";
 import { Calendar, MapPin } from "lucide-react";
 import { Link } from "wouter";
@@ -63,11 +64,22 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
           </p>
         )}
 
-        <Link href={`/race/${race.id}`}>
-          <Button variant="outline" className="w-full" data-testid={`button-view-analysis-${race.id}`}>
-            View Analysis
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href={`/race/${race.id}`} className="flex-1">
+            <Button variant="outline" className="w-full" data-testid={`button-view-analysis-${race.id}`}>
+              View Analysis
+            </Button>
+          </Link>
+          <ShareButton
+            title={race.title}
+            text={leadingCandidate && leadingProbability 
+              ? `🗳️ ${race.title}: ${leadingCandidate} leads with ${leadingProbability.toFixed(1)}% win probability. See the full AI-powered analysis!`
+              : `🗳️ Check out the ${race.title} election analysis on ElectionPredict!`}
+            url={`${window.location.origin}/race/${race.id}`}
+            variant="outline"
+            size="default"
+          />
+        </div>
       </CardContent>
     </Card>
   );

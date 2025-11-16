@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PartyBadge } from "./PartyBadge";
 import { ProbabilityBar } from "./ProbabilityBar";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "./ui/separator";
+import { ShareButton } from "./ShareButton";
 import type { ComparisonResult } from "@shared/schema";
 import { ArrowRight, TrendingUp, DollarSign, Users, MapPin, Award, Clock } from "lucide-react";
 
@@ -46,8 +47,20 @@ export function ComparisonPanel({ comparison }: ComparisonPanelProps) {
     historicalTrends: "Historical Trends",
   };
 
+  const shareText = `⚖️ ${candidate1.name} vs ${candidate2.name} in ${race.title}: ${prediction1.winProbability.toFixed(1)}% vs ${prediction2.winProbability.toFixed(1)}%. Check out this AI-powered election analysis!`;
+  
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Head-to-Head Comparison</h2>
+        <ShareButton
+          title={`${candidate1.name} vs ${candidate2.name} - ${race.title}`}
+          text={shareText}
+          url={typeof window !== 'undefined' ? window.location.href : ''}
+          variant="outline"
+          size="sm"
+        />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card data-testid="card-candidate1">
           <CardHeader>
