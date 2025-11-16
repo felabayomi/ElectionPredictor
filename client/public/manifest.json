@@ -3,7 +3,7 @@
   "short_name": "ElectionPredict",
   "description": "AI-powered political election predictions for Presidential, Senate, House, and Governor races",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#ffffff",
   "theme_color": "#1e40af",
   "orientation": "portrait-primary",

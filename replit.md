@@ -10,6 +10,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+**November 16, 2025** - Progressive Web App (PWA) Support (COMPLETED ✅):
+- **Mobile Installation**: App can now be installed on mobile home screens
+  - PWA manifest configured with fullscreen display mode for immersive experience
+  - App icons in multiple sizes (180x180, 192x192, 512x512) for different devices
+  - Theme color (#1e40af navy blue) integrated with mobile UI
+  
+- **Cross-Platform Support**:
+  - Android: Uses Web Manifest and "Add to Home Screen" functionality
+  - iOS: Apple-specific meta tags for home screen installation
+  - Works fullscreen without browser chrome when launched from home screen
+  
+- **Assets**:
+  - Custom app icon generated and optimized for mobile devices
+  - Favicon set for browser tab identification
+  - All assets served from `/client/public/` directory
+
 **November 16, 2025** - PostgreSQL Database Migration & Clean Deployment (COMPLETED ✅):
 - **Database Migration**: Migrated from in-memory storage to PostgreSQL for production deployment
   - Created Drizzle ORM schema with tables: `races`, `candidates`, `predictions`, `race_candidates`, `featured_matchups`
