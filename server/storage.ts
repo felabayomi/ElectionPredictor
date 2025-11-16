@@ -381,6 +381,27 @@ export class MemStorage implements IStorage {
       mikePrediction,
       emilyPrediction,
     ].forEach((p) => this.predictions.set(`${p.raceId}-${p.candidateId}`, p));
+
+    const presidentialMatchup: FeaturedMatchup = {
+      id: "featured-presidential-2028",
+      title: "2028 Democratic Presidential Primary",
+      description: "Harris vs Obama: The establishment favorite faces the party's most beloved figure in a historic primary showdown",
+      url: "/race/presidential-primary-2028",
+      displayOrder: 1,
+      createdAt: new Date().toISOString(),
+    };
+
+    const nySenateMatchup: FeaturedMatchup = {
+      id: "featured-ny-senate",
+      title: "New York U.S. Senate Race",
+      description: "Progressive firebrand AOC takes on establishment Democrat Letitia James for Senate",
+      url: "/race/ny-senate-2026",
+      displayOrder: 2,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.featuredMatchups.set(presidentialMatchup.id, presidentialMatchup);
+    this.featuredMatchups.set(nySenateMatchup.id, nySenateMatchup);
   }
 
   async getUser(id: string): Promise<User | undefined> {
