@@ -9,7 +9,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info, ExternalLink, Sparkles } from "lucide-react";
+import { BarChart3, Info, ExternalLink } from "lucide-react";
 
 interface RaceWithPredictions {
   race: Race;
@@ -55,17 +55,7 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">AI-Powered Election Analysis</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link href="/natural-language">
-                <Button
-                  variant="default"
-                  size="sm"
-                  data-testid="button-natural-language"
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Ask AI Anything
-                </Button>
-              </Link>
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
