@@ -63,19 +63,28 @@ Preferred communication style: Simple, everyday language.
   - Race detail pages: Share button in header (top right)
   - Comparison panels: Share button in "Head-to-Head Comparison" header
 
-**November 16, 2025** - Natural Language Query Improvements (COMPLETED ✅):
+**November 16, 2025** - Natural Language Analysis - Save to Database & Dashboard Integration (COMPLETED ✅):
+- **Database Persistence**: Natural Language Analysis results now save permanently to PostgreSQL
+  - Creates new race record with AI-generated title and description
+  - Saves all extracted candidates and links them to the race
+  - Stores predictions with win probabilities and confidence intervals
+  - Results persist across server restarts and appear on public Dashboard
+  
+- **User Workflow**: Seamless experience from query to shareable race
+  - User enters election question on `/natural-language` page
+  - After AI analysis completes, results save to database
+  - User redirects automatically to `/race/{id}` detail page
+  - Race appears as a card on Dashboard with "View Analysis" and share buttons
+  - Same functionality as admin-created races (view, share, candidate cards)
+  
 - **Frontend Fix**: Fixed critical bug where `apiRequest` function returned raw Response object instead of parsed JSON
   - Changed return type from `Promise<Response>` to generic `Promise<T>`
   - Added `await res.json()` to properly parse responses
-  - This was causing UI to remain stuck in loading state even when backend returned data
   
 - **Fallback Extraction Improvements**:
   - Smart candidate section detection: extracts only text AFTER keywords like "consider", "candidates", "contenders"
   - Retiring politician filter: excludes names mentioned BEFORE "retires/retiring/steps down" keywords
   - Example: "Chuck Schumer retires? Consider: AOC, Letitia James..." correctly excludes "Chuck Schumer" and includes only the 5 listed candidates
-  - Additional geographic/institutional term filtering: excludes "New York Senate", state names, office titles
-  
-- **Test Results**: E2E test confirms 5 candidates extracted correctly with probabilities, Chuck Schumer properly excluded
 
 **November 16, 2025** - Race Creation and AI-Powered Intelligent Suggestions:
 - **Custom Race Creation**: Admins can now create new races beyond default seed data
