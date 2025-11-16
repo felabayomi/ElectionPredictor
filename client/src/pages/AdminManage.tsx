@@ -5,11 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft } from "lucide-react";
-import type { FeaturedMatchup, SuggestedMatchup } from "@shared/schema";
+import type { FeaturedMatchup, SuggestedMatchup, Race } from "@shared/schema";
 import { useState } from "react";
 import { Link } from "wouter";
+
+interface RaceWithData {
+  race: Race;
+  candidates: any[];
+  predictions: any[];
+}
 
 export default function AdminManage() {
   const { toast } = useToast();
@@ -18,6 +25,7 @@ export default function AdminManage() {
     description: "",
     url: "",
   });
+  const [selectedRaceId, setSelectedRaceId] = useState<string>("");
 
   const { data: featuredMatchups = [], isLoading: loadingFeatured } = useQuery<FeaturedMatchup[]>({
     queryKey: ["/api/featured-matchups"],
@@ -27,6 +35,10 @@ export default function AdminManage() {
     queryKey: ["/api/admin/suggested-matchups"],
   });
 
+  const { data: racesData = [] } = useQuery<RaceWithData[]>({
+    queryKey: ["/api/races"],
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof newMatchup) => {
       return apiRequest("POST", "/api/admin/featured-matchups", data);
@@ -34,6 +46,7 @@ export default function AdminManage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/featured-matchups"] });
       setNewMatchup({ title: "", description: "", url: "" });
+      setSelectedRaceId("");
       toast({ title: "Featured matchup created successfully" });
     },
     onError: (error: any) => {
@@ -62,10 +75,28 @@ export default function AdminManage() {
     },
   });
 
+  const handleRaceSelection = (raceId: string) => {
+    setSelectedRaceId(raceId);
+    const selectedRace = racesData.find(r => r.race.id === raceId);
+    if (selectedRace) {
+      const topCandidates = selectedRace.candidates
+        .slice(0, 2)
+        .map(c => c.name)
+        .join(" vs ");
+      
+      setNewMatchup({
+        title: topCandidates || selectedRace.race.title,
+        description: selectedRace.race.description || selectedRace.race.title,
+        url: `/race/${raceId}`,
+      });
+    }
+  };
+
   const handleCreateFromSuggestion = (suggestion: SuggestedMatchup) => {
     const candidateNames = suggestion.candidates.map(c => c.name).join(" vs ");
-    const url = `/races/${suggestion.race.id}`;
+    const url = `/race/${suggestion.race.id}`;
     
+    setSelectedRaceId(suggestion.race.id);
     setNewMatchup({
       title: candidateNames,
       description: `${suggestion.race.title} - ${suggestion.reason}`,
@@ -115,41 +146,65 @@ export default function AdminManage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
+                  <Label htmlFor="race-select">Select Race</Label>
+                  <Select 
+                    value={selectedRaceId} 
+                    onValueChange={handleRaceSelection}
+                  >
+                    <SelectTrigger id="race-select" data-testid="select-race">
+                      <SelectValue placeholder="Choose a race to feature..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {racesData.map(({ race }) => (
+                        <SelectItem key={race.id} value={race.id}>
+                          {race.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select a race and the URL will be auto-generated
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="title">Matchup Title</Label>
                   <Input
                     id="title"
                     data-testid="input-matchup-title"
-                    placeholder="Harris vs Obama"
+                    placeholder="Candidate A vs Candidate B"
                     value={newMatchup.title}
                     onChange={(e) => setNewMatchup({ ...newMatchup, title: e.target.value })}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Customize how the matchup appears on the homepage
+                  </p>
                 </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
                     data-testid="input-matchup-description"
-                    placeholder="2028 Democratic Presidential Primary - The race everyone's watching"
+                    placeholder="Brief description of why this matchup is interesting"
                     value={newMatchup.description}
                     onChange={(e) => setNewMatchup({ ...newMatchup, description: e.target.value })}
-                    rows={3}
+                    rows={2}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="url">URL Path</Label>
-                  <Input
-                    id="url"
-                    data-testid="input-matchup-url"
-                    placeholder="/races/presidential-primary-2028"
-                    value={newMatchup.url}
-                    onChange={(e) => setNewMatchup({ ...newMatchup, url: e.target.value })}
-                  />
-                </div>
+                
+                {newMatchup.url && (
+                  <div className="p-3 bg-muted rounded-md">
+                    <Label className="text-xs text-muted-foreground">Auto-generated URL</Label>
+                    <p className="text-sm font-mono mt-1">{newMatchup.url}</p>
+                  </div>
+                )}
+                
                 <Button 
                   type="submit" 
                   className="w-full"
                   data-testid="button-create-matchup"
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || !selectedRaceId}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   {createMutation.isPending ? "Creating..." : "Create Featured Matchup"}

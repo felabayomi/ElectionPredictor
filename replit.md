@@ -8,6 +8,16 @@ ElectionPredict is a data-driven political analytics platform that predicts elec
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+**November 16, 2025** - Featured Matchup Creation Improvements:
+- Replaced manual URL entry with race selection dropdown to prevent invalid URL errors
+- System now auto-generates URLs in correct format (`/race/{race-id}`)
+- Auto-fills title and description based on selected race
+- Fixed bug where suggested matchups generated wrong URLs
+- Improved UI to display featured matchups as cards with descriptions on both public and admin dashboards
+- Form resets after successful creation for better UX
+
 ## System Architecture
 
 ### Frontend Architecture

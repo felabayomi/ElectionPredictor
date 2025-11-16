@@ -102,24 +102,23 @@ export default function Dashboard() {
         </Tabs>
 
         {!loadingFeatured && featuredMatchups.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Featured Matchups</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="mb-8">
+            <h3 className="text-2xl font-semibold mb-4">Featured Matchups</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {featuredMatchups.map((matchup) => (
                 <Link key={matchup.id} href={matchup.url}>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start" 
-                    data-testid={`button-featured-${matchup.id}`}
-                  >
-                    {matchup.title}
-                  </Button>
+                  <Card className="hover-elevate active-elevate-2 cursor-pointer h-full" data-testid={`card-featured-${matchup.id}`}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">{matchup.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{matchup.description}</p>
+                    </CardContent>
+                  </Card>
                 </Link>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {isLoading ? (
