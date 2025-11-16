@@ -105,9 +105,28 @@ export default function Dashboard() {
           </TabsList>
         </Tabs>
 
-        {!loadingFeatured && featuredMatchups.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-2xl font-semibold mb-4">Featured Matchups</h3>
+        <div className="mb-8">
+          <div className="mb-4">
+            <h3 className="text-2xl font-semibold mb-1">Featured Matchups</h3>
+            <p className="text-sm text-muted-foreground">
+              Curated head-to-head comparisons created in Admin
+            </p>
+          </div>
+          {loadingFeatured ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[1, 2].map((i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-16 w-full mb-4" />
+                    <Skeleton className="h-9 w-32" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : featuredMatchups.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {featuredMatchups.map((matchup) => (
                 <Card key={matchup.id} className="h-full flex flex-col" data-testid={`card-featured-${matchup.id}`}>
@@ -135,8 +154,16 @@ export default function Dashboard() {
                 </Card>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <Card className="bg-muted/50">
+              <CardContent className="py-8 text-center">
+                <p className="text-muted-foreground">
+                  No featured matchups yet. Create them in <strong>Admin → Manage Featured Matchups</strong>
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -157,33 +184,43 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="mb-6">
-              <h3 className="text-2xl font-semibold mb-4">
+              <h3 className="text-2xl font-semibold mb-1">
                 {selectedRaceType === "All" ? "All Races" : `${selectedRaceType} Races`}
               </h3>
+              <p className="text-sm text-muted-foreground">
+                Races created in Admin or generated from Natural Language Analysis questions
+              </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {getFeaturedRaces().map(({ race, candidates, predictions }) => {
-                const leadingPrediction = predictions.reduce(
-                  (max, pred) => (pred.winProbability > max.winProbability ? pred : max),
-                  predictions[0]
-                );
-                const leadingCandidate = candidates.find((c) => c.id === leadingPrediction?.candidateId);
+            {filteredRaces && filteredRaces.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {getFeaturedRaces().map(({ race, candidates, predictions }) => {
+                  const leadingPrediction = predictions.reduce(
+                    (max, pred) => (pred.winProbability > max.winProbability ? pred : max),
+                    predictions[0]
+                  );
+                  const leadingCandidate = candidates.find((c) => c.id === leadingPrediction?.candidateId);
 
-                return (
-                  <RaceCard
-                    key={race.id}
-                    race={race}
+                  return (
+                    <RaceCard
+                      key={race.id}
+                      race={race}
                     leadingCandidate={leadingCandidate?.name}
                     leadingProbability={leadingPrediction?.winProbability}
                     candidateCount={candidates.length}
                   />
                 );
               })}
-            </div>
-
-            {filteredRaces && filteredRaces.length === 0 && (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No races found for this category.</p>
+              </div>
+            ) : (
+              <Card className="bg-muted/50">
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground mb-2">
+                    No races found for this category.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Create races in <strong>Admin → Create Race</strong> or ask questions on <strong>Natural Language Analysis</strong>
+                  </p>
+                </CardContent>
               </Card>
             )}
           </>
