@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CandidateCard } from "@/components/CandidateCard";
+import { ShareButton } from "@/components/ShareButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -205,9 +206,20 @@ export default function NaturalLanguageAnalysis() {
         {result && !analyzeMutation.isPending && result.candidates && result.candidates.length > 0 && (
           <div className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>{result.raceTitle}</CardTitle>
-                <Badge className="w-fit">AI-Powered Analysis</Badge>
+              <CardHeader className="flex flex-row items-start justify-between gap-4 flex-wrap space-y-0 pb-3">
+                <div className="flex-1 space-y-2">
+                  <CardTitle>{result.raceTitle}</CardTitle>
+                  <Badge className="w-fit">AI-Powered Analysis</Badge>
+                </div>
+                <ShareButton
+                  url={typeof window !== 'undefined' ? window.location.href : ''}
+                  title={result.raceTitle}
+                  text={`🤖 ${result.raceTitle}: AI predicted ${result.candidates.length} candidates. Top: ${result.candidates.sort((a, b) => {
+                    const predA = result.predictions.find(p => p.candidateId === a.id);
+                    const predB = result.predictions.find(p => p.candidateId === b.id);
+                    return (predB?.winProbability || 0) - (predA?.winProbability || 0);
+                  })[0]?.name} with ${Math.round(result.predictions.sort((a, b) => b.winProbability - a.winProbability)[0]?.winProbability || 0)}% win probability. See the full AI-powered analysis!`}
+                />
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
