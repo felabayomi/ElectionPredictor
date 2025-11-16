@@ -60,9 +60,31 @@ export default function NaturalLanguageAnalysis() {
   };
 
   const exampleQueries = [
-    "Which candidates can win Schumer's Senate seat if he retires in 2028? Alexandria Ocasio-Cortez, Letitia James, Pat Ryan, Ritchie Torres, Tom Suozzi",
-    "Who would win in a Democratic presidential primary between Kamala Harris and Michelle Obama?",
-    "Compare the chances of progressive vs moderate Democrats in a New York Senate race",
+    {
+      label: "Multiple Candidates (Comma-Separated)",
+      query: "Who would win the 2028 California Senate race? Consider these candidates: Adam Schiff, Katie Porter, Barbara Lee, Eric Swalwell"
+    },
+    {
+      label: "Multiple Candidates (Bulleted List)",
+      query: `If Chuck Schumer retires, who could win his Senate seat in 2028? Top contenders:
+• Alexandria Ocasio-Cortez
+• Letitia James
+• Pat Ryan
+• Ritchie Torres
+• Tom Suozzi`
+    },
+    {
+      label: "Head-to-Head Matchup",
+      query: "Who would win in a Democratic presidential primary between Kamala Harris and Michelle Obama?"
+    },
+    {
+      label: "Ideological Comparison",
+      query: "Compare the chances of progressive vs moderate Democrats in a contested New York Senate primary"
+    },
+    {
+      label: "Governor Race Analysis",
+      query: "What are the win probabilities for Gavin Newsom, Gretchen Whitmer, and Josh Shapiro in a potential 2028 Democratic presidential primary?"
+    }
   ];
 
   return (
@@ -139,18 +161,25 @@ export default function NaturalLanguageAnalysis() {
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-base">Example Questions</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Click any example to try it. Include specific candidate names for best results.
+            </p>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {exampleQueries.map((example, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                className="w-full justify-start text-left h-auto py-3 px-4"
-                onClick={() => setQuery(example)}
-                data-testid={`button-example-${index}`}
-              >
-                <span className="text-sm line-clamp-2">{example}</span>
-              </Button>
+              <div key={index} className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground px-1">
+                  {example.label}
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left h-auto py-3 px-4"
+                  onClick={() => setQuery(example.query)}
+                  data-testid={`button-example-${index}`}
+                >
+                  <span className="text-sm whitespace-pre-wrap">{example.query}</span>
+                </Button>
+              </div>
             ))}
           </CardContent>
         </Card>
