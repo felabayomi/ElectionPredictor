@@ -1,0 +1,24 @@
+{
+  "name": "ElectionPredict - AI Election Analysis",
+  "short_name": "ElectionPredict",
+  "description": "AI-powered political election predictions for Presidential, Senate, House, and Governor races",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
