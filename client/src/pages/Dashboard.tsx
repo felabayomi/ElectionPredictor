@@ -99,27 +99,8 @@ export default function Dashboard() {
           </TabsList>
         </Tabs>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card className="bg-primary text-primary-foreground">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Head-to-Head Comparisons
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-primary-foreground/90 mb-4">
-                Compare any two candidates side-by-side with AI-powered analysis
-              </p>
-              <Link href="/compare">
-                <Button variant="secondary" className="w-full" data-testid="button-compare-candidates">
-                  Compare Candidates
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-chart-2 text-white">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5" />
@@ -127,8 +108,8 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-white/90 mb-4">
-                Build your own race with custom candidates and party affiliations
+              <p className="text-primary-foreground/90 mb-4">
+                Build your own race with custom candidates and compare head-to-head with AI analysis
               </p>
               <Link href="/custom-prediction">
                 <Button variant="secondary" className="w-full" data-testid="button-custom-prediction">
@@ -142,7 +123,7 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5" />
-                Natural Language
+                Natural Language Analysis
               </CardTitle>
             </CardHeader>
             <CardContent>

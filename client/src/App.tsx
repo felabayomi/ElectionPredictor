@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/Dashboard";
-import ComparePage from "@/pages/ComparePage";
 import PresidentialPrimaryCompare from "@/pages/PresidentialPrimaryCompare";
 import NYSenateCompare from "@/pages/NYSenateCompare";
 import RaceDetail from "@/pages/RaceDetail";
@@ -16,7 +15,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/compare" component={ComparePage} />
       <Route path="/compare/presidential-primary" component={PresidentialPrimaryCompare} />
       <Route path="/compare/ny-senate" component={NYSenateCompare} />
       <Route path="/custom-prediction" component={CustomPrediction} />
