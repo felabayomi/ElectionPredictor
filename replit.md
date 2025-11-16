@@ -11,7 +11,7 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes
 
 **November 16, 2025** - Social Media Sharing Feature (COMPLETED ✅):
-- **Share Buttons**: Added social sharing functionality to race cards and detail pages
+- **Share Buttons**: Added social sharing functionality throughout the app
   - Uses Web Share API (native mobile sharing) when available on mobile devices
   - Fallback to platform-specific share links (X/Twitter, Facebook, LinkedIn, Copy Link) on desktop
   - ShareButton component at `client/src/components/ShareButton.tsx`
@@ -20,10 +20,12 @@ Preferred communication style: Simple, everyday language.
 - **Share Text Templates**:
   - Race cards: "🗳️ [Race Title]: [Candidate] leads with [X]% win probability. See the full AI-powered analysis!"
   - Race details: Same format with leading candidate data in header
+  - Featured matchups: "⚖️ [Matchup Title]: [Description] Check out this AI-powered election analysis!"
   - Comparisons: "⚖️ [Candidate 1] vs [Candidate 2] in [Race Title]: [X]% vs [Y]%. Check out this AI-powered election analysis!"
   
 - **Locations**:
   - Dashboard race cards: Share button next to "View Analysis"
+  - Featured matchup cards: Share button next to "View Analysis" button
   - Race detail pages: Share button in header (top right)
   - Comparison panels: Share button in "Head-to-Head Comparison" header
 

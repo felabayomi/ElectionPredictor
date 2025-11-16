@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RaceCard } from "@/components/RaceCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
+import { ShareButton } from "@/components/ShareButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info } from "lucide-react";
+import { BarChart3, Info, ExternalLink } from "lucide-react";
 
 interface RaceWithPredictions {
   race: Race;
@@ -106,16 +107,29 @@ export default function Dashboard() {
             <h3 className="text-2xl font-semibold mb-4">Featured Matchups</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {featuredMatchups.map((matchup) => (
-                <Link key={matchup.id} href={matchup.url}>
-                  <Card className="hover-elevate active-elevate-2 cursor-pointer h-full" data-testid={`card-featured-${matchup.id}`}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">{matchup.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{matchup.description}</p>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <Card key={matchup.id} className="h-full flex flex-col" data-testid={`card-featured-${matchup.id}`}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">{matchup.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col">
+                    <p className="text-sm text-muted-foreground mb-4 flex-1">{matchup.description}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={matchup.url}>
+                        <Button variant="default" size="sm" data-testid={`button-view-featured-${matchup.id}`}>
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          View Analysis
+                        </Button>
+                      </Link>
+                      <ShareButton
+                        title={matchup.title}
+                        text={`⚖️ ${matchup.title}: ${matchup.description} Check out this AI-powered election analysis!`}
+                        url={typeof window !== 'undefined' ? `${window.location.origin}${matchup.url}` : matchup.url}
+                        variant="outline"
+                        size="sm"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
