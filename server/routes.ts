@@ -281,13 +281,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
         .filter((c: any) => c.name && c.party);
 
-      if (normalizedCandidates.length !== 2) {
-        return res.status(400).json({ error: "Exactly 2 candidates are required for head-to-head comparison" });
+      if (normalizedCandidates.length < 2) {
+        return res.status(400).json({ error: "At least 2 candidates are required" });
       }
 
       const candidateNames = normalizedCandidates.map((c: any) => c.name);
-      if (candidateNames[0].toLowerCase() === candidateNames[1].toLowerCase()) {
-        return res.status(400).json({ error: "Candidates must be different" });
+      const uniqueNames = new Set(candidateNames.map((name: string) => name.toLowerCase()));
+      if (uniqueNames.size !== candidateNames.length) {
+        return res.status(400).json({ error: "All candidates must be different" });
       }
 
       const result = await generateCustomPrediction(normalizedCandidates, raceTitle?.trim() || "Custom Race");
@@ -343,8 +344,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
-      const [candidate1, candidate2] = customCandidates;
-      const [prediction1, prediction2] = predictions;
+      const sortedPredictions = [...predictions].sort((a, b) => b.winProbability - a.winProbability);
+      const sortedCandidates = sortedPredictions.map(p => 
+        customCandidates.find(c => c.id === p.candidateId)!
+      );
+
+      const [candidate1, candidate2] = sortedCandidates;
+      const [prediction1, prediction2] = sortedPredictions;
 
       const factorKeys: (keyof PredictionFactors)[] = [
         "polling",

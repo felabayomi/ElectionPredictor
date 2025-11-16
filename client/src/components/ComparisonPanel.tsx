@@ -13,6 +13,14 @@ interface ComparisonPanelProps {
 export function ComparisonPanel({ comparison }: ComparisonPanelProps) {
   const { candidate1, candidate2, prediction1, prediction2, factorComparison, aiInsights } = comparison;
 
+  if (!candidate1 || !candidate2 || !prediction1 || !prediction2) {
+    return (
+      <Card className="p-12">
+        <p className="text-center text-muted-foreground">Unable to load comparison data. Please try again.</p>
+      </Card>
+    );
+  }
+
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -45,7 +53,7 @@ export function ComparisonPanel({ comparison }: ComparisonPanelProps) {
           <CardHeader>
             <div className="flex items-start gap-4">
               <Avatar className="h-24 w-24 shrink-0">
-                <AvatarImage src={candidate1.photoUrl} alt={candidate1.name} />
+                {candidate1.photoUrl && <AvatarImage src={candidate1.photoUrl} alt={candidate1.name} />}
                 <AvatarFallback className="text-2xl">{getInitials(candidate1.name)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
@@ -70,7 +78,7 @@ export function ComparisonPanel({ comparison }: ComparisonPanelProps) {
           <CardHeader>
             <div className="flex items-start gap-4">
               <Avatar className="h-24 w-24 shrink-0">
-                <AvatarImage src={candidate2.photoUrl} alt={candidate2.name} />
+                {candidate2.photoUrl && <AvatarImage src={candidate2.photoUrl} alt={candidate2.name} />}
                 <AvatarFallback className="text-2xl">{getInitials(candidate2.name)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

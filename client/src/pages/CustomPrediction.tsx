@@ -9,7 +9,7 @@ import { ComparisonPanel } from "@/components/ComparisonPanel";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Party, ComparisonResult } from "@shared/schema";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface CustomCandidate {
@@ -33,8 +33,8 @@ export default function CustomPrediction() {
         party: c.party
       }));
       
-      if (validCandidates.length !== 2) {
-        throw new Error("Please enter exactly 2 candidates");
+      if (validCandidates.length < 2) {
+        throw new Error("Please enter at least 2 candidates");
       }
 
       const result = await apiRequest<ComparisonResult>(
@@ -68,6 +68,16 @@ export default function CustomPrediction() {
     const updated = [...candidates];
     updated[index] = { ...updated[index], [field]: value };
     setCandidates(updated);
+  };
+
+  const addCandidate = () => {
+    setCandidates([...candidates, { name: "", party: "Independent" }]);
+  };
+
+  const removeCandidate = (index: number) => {
+    if (candidates.length > 2) {
+      setCandidates(candidates.filter((_, i) => i !== index));
+    }
   };
 
   const handleAnalyze = () => {
@@ -113,8 +123,20 @@ export default function CustomPrediction() {
         </Card>
 
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Candidates (Head-to-Head Comparison)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <div>
+              <CardTitle>Candidates</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Add 2 or more candidates to compare</p>
+            </div>
+            <Button
+              onClick={addCandidate}
+              variant="outline"
+              size="sm"
+              data-testid="button-add-candidate"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Candidate
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -152,6 +174,16 @@ export default function CustomPrediction() {
                   >
                     {candidate.party.charAt(0)}
                   </Badge>
+                  {candidates.length > 2 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeCandidate(index)}
+                      data-testid={`button-remove-candidate-${index}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
