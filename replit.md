@@ -52,10 +52,10 @@ Preferred communication style: Simple, everyday language.
   - Fixed Twitter icon import (changed from SiTwitter to SiX due to rebrand)
   
 - **Share Text Templates**:
-  - Race cards: "🗳️ Based on the scenario analysis, [Candidate] currently has the highest estimated win probability at [X]% in the [Race Title]."
+  - Race cards: "🗳️ Based on the scenario analysis, [Candidate] currently has the highest estimated win probability at [X]% in the [Race Title]. [URL]"
   - Race details: Same format with leading candidate data in header
-  - Featured matchups: "⚖️ [Matchup Title]: [Description] Check out this election analysis!"
-  - Comparisons: "⚖️ [Candidate 1] vs [Candidate 2] in [Race Title]: [X]% vs [Y]%. Check out this election analysis!"
+  - Featured matchups: "⚖️ [Matchup Title]: [Description] Check out this election analysis! [URL]"
+  - Comparisons: "⚖️ [Candidate 1] vs [Candidate 2] in [Race Title]: [X]% vs [Y]%. Check out this election analysis! [URL]"
   
 - **Locations**:
   - Dashboard race cards: Share button next to "View Analysis"
