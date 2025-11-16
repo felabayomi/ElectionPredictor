@@ -330,23 +330,34 @@ Probabilities must sum to ~100.`;
   } catch (error) {
     console.error("OpenAI API error, using fallback extraction:", error);
     
-    const cleanedQuery = query.replace(/^[•\-\*\s]+/gm, '');
+    const candidateListMatch = query.match(/(?:consider|candidates?:?|contenders?:?)[\s:]*([^.?!]+)/i);
+    let candidateSection = candidateListMatch ? candidateListMatch[1] : query;
     
-    const candidateNames = cleanedQuery.match(/[A-Z][a-z]+(?:[ -][A-Z][a-z]+)+/g) || [];
+    candidateSection = candidateSection.replace(/^[•\-\*\s]+/gm, ' ');
     
-    console.log("Fallback extraction found candidates:", candidateNames);
+    const allNames = candidateSection.match(/[A-Z][a-z]+(?:[ -][A-Z][a-z]+)+/g) || [];
+    
+    console.log("Fallback extraction found potential names:", allNames);
     
     const excludeTerms = [
-      'New York', 'California', 'Senate', 'House', 'Governor', 'Presidential',
-      'Democratic', 'Republican', 'Independent', 'Primary', 'Election',
-      'Race', 'Consider', 'These Candidates', 'Top Contenders'
+      'New York', 'California', 'Texas', 'Florida', 'Senate', 'House', 'Governor', 
+      'Presidential', 'Democratic', 'Republican', 'Independent', 'Primary', 'Election',
+      'Race', 'Consider These', 'Top Contenders', 'United States'
     ];
     
-    const uniqueNames = Array.from(new Set(candidateNames.map(n => n.trim())))
+    const retiringKeywords = ['retires', 'retiring', 'steps down', 'stepping down', 'leaves office'];
+    const beforeRetiring = retiringKeywords.some(kw => query.toLowerCase().includes(kw))
+      ? query.toLowerCase().split(retiringKeywords.find(kw => query.toLowerCase().includes(kw))!)[0]
+      : '';
+    
+    const uniqueNames = Array.from(new Set(allNames.map(n => n.trim())))
       .filter(n => n.length > 3)
       .filter(n => !n.includes('\n'))
       .filter(n => !excludeTerms.some(term => n.includes(term)))
       .filter(n => {
+        if (beforeRetiring && beforeRetiring.toLowerCase().includes(n.toLowerCase())) {
+          return false;
+        }
         const words = n.split(' ');
         return words.length >= 2 && words.length <= 4;
       });
