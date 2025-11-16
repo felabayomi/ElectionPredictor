@@ -64,8 +64,8 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
         )}
 
         <Link href={`/race/${race.id}`}>
-          <Button variant="outline" className="w-full" data-testid={`button-analyze-race-${race.id}`}>
-            Analyze Race
+          <Button variant="outline" className="w-full" data-testid={`button-view-analysis-${race.id}`}>
+            View Analysis
           </Button>
         </Link>
       </CardContent>
