@@ -102,10 +102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Call AI to regenerate predictions
       const newPredictions = await reanalyzeRace(race.title, candidates);
+      console.log(`AI generated predictions:`, Object.keys(newPredictions).length > 0 ? Object.keys(newPredictions) : 'EMPTY');
 
       // Update each prediction in the database
       for (const candidate of candidates) {
         const predictionData = newPredictions[candidate.name];
+        console.log(`Processing candidate ${candidate.name}:`, predictionData ? 'HAS DATA' : 'NO DATA');
         if (predictionData) {
           const prediction: Prediction = {
             raceId: race.id,
@@ -121,12 +123,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             aiAnalysis: "Updated based on current political landscape and recent developments.",
           };
 
+          console.log(`Upserting prediction for ${candidate.name}: ${predictionData.probability}%`);
           await storage.updatePrediction(prediction);
         }
       }
 
       // Fetch updated predictions to return
       const updatedPredictions = await storage.getPredictionsByRace(race.id);
+      console.log(`Fetched ${updatedPredictions.length} predictions from database`);
       
       console.log(`Successfully reanalyzed race: ${race.title}`);
       res.json({ 

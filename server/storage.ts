@@ -328,10 +328,11 @@ export class DbStorage implements IStorage {
 
   async updatePrediction(prediction: Prediction): Promise<void> {
     const { predictions } = await import("@shared/schema");
-    const { eq, and } = await import("drizzle-orm");
     await this.db
-      .update(predictions)
-      .set({
+      .insert(predictions)
+      .values({
+        raceId: prediction.raceId,
+        candidateId: prediction.candidateId,
         winProbability: prediction.winProbability,
         confidenceIntervalLow: prediction.confidenceInterval.low,
         confidenceIntervalHigh: prediction.confidenceInterval.high,
@@ -339,12 +340,17 @@ export class DbStorage implements IStorage {
         methodology: prediction.methodology,
         aiAnalysis: prediction.aiAnalysis,
       })
-      .where(
-        and(
-          eq(predictions.raceId, prediction.raceId),
-          eq(predictions.candidateId, prediction.candidateId)
-        )
-      );
+      .onConflictDoUpdate({
+        target: [predictions.raceId, predictions.candidateId],
+        set: {
+          winProbability: prediction.winProbability,
+          confidenceIntervalLow: prediction.confidenceInterval.low,
+          confidenceIntervalHigh: prediction.confidenceInterval.high,
+          factors: prediction.factors,
+          methodology: prediction.methodology,
+          aiAnalysis: prediction.aiAnalysis,
+        },
+      });
   }
 
   async getAllFeaturedMatchups(): Promise<FeaturedMatchup[]> {

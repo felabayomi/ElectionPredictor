@@ -10,7 +10,7 @@ import { RaceCard } from "@/components/RaceCard";
 import { CandidateCard } from "@/components/CandidateCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
+import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup, Party } from "@shared/schema";
 import { Link } from "wouter";
 import { BarChart3, Info, Zap } from "lucide-react";
 
@@ -85,6 +85,26 @@ export default function AdminDashboard() {
     onError: (error: any) => {
       toast({ 
         title: "Failed to delete race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const addCandidateMutation = useMutation({
+    mutationFn: async ({ raceId, name, party }: { raceId: string; name: string; party: Party }) => {
+      return apiRequest("POST", `/api/admin/races/${raceId}/candidates`, { name, party });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      toast({ 
+        title: "Candidate added successfully",
+        description: "You can add more candidates or click 'Reanalyze' to generate predictions"
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to add candidate", 
         description: error.message,
         variant: "destructive" 
       });
@@ -278,6 +298,8 @@ export default function AdminDashboard() {
                     reanalyzeDisabled={reanalyzingRaceId === race.id}
                     onDelete={(id) => deleteRaceMutation.mutate(id)}
                     deleteDisabled={deleteRaceMutation.isPending}
+                    onAddCandidate={(raceId, name, party) => addCandidateMutation.mutate({ raceId, name, party })}
+                    addCandidateDisabled={addCandidateMutation.isPending}
                   />
                 );
               })}

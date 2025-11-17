@@ -14,8 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Race, RaceType } from "@shared/schema";
-import { Calendar, MapPin, Trash2, Pencil, RefreshCw } from "lucide-react";
+import type { Race, RaceType, Party } from "@shared/schema";
+import { Calendar, MapPin, Trash2, Pencil, RefreshCw, Users } from "lucide-react";
 import { Link } from "wouter";
 
 interface RaceCardProps {
@@ -29,6 +29,8 @@ interface RaceCardProps {
   editDisabled?: boolean;
   onReanalyze?: (id: string) => void;
   reanalyzeDisabled?: boolean;
+  onAddCandidate?: (raceId: string, name: string, party: Party) => void;
+  addCandidateDisabled?: boolean;
 }
 
 const raceTypeColors: Record<RaceType, string> = {
@@ -39,15 +41,26 @@ const raceTypeColors: Record<RaceType, string> = {
   Local: "bg-chart-5 text-white",
 };
 
-export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled, onEdit, editDisabled, onReanalyze, reanalyzeDisabled }: RaceCardProps) {
+export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled, onEdit, editDisabled, onReanalyze, reanalyzeDisabled, onAddCandidate, addCandidateDisabled }: RaceCardProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCandidateDialogOpen, setIsCandidateDialogOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(race.title);
   const [editedRaceType, setEditedRaceType] = useState<RaceType>(race.type);
+  const [candidateName, setCandidateName] = useState("");
+  const [candidateParty, setCandidateParty] = useState<Party>("Democratic");
 
   const handleSaveEdit = () => {
     if (onEdit && editedTitle.trim()) {
       onEdit(race.id, editedTitle.trim(), editedRaceType);
       setIsEditDialogOpen(false);
+    }
+  };
+
+  const handleAddCandidate = () => {
+    if (onAddCandidate && candidateName.trim()) {
+      onAddCandidate(race.id, candidateName.trim(), candidateParty);
+      setCandidateName("");
+      setCandidateParty("Democratic");
     }
   };
 
@@ -126,6 +139,22 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
           </p>
         )}
 
+        {onAddCandidate && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              setIsCandidateDialogOpen(true);
+            }}
+            disabled={addCandidateDisabled}
+            data-testid={`button-manage-candidates-${race.id}`}
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Manage Candidates
+          </Button>
+        )}
+
         {onReanalyze && (
           <Button
             variant="outline"
@@ -202,6 +231,67 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
           </Button>
           <Button onClick={handleSaveEdit} disabled={!editedTitle.trim() || editDisabled} data-testid="button-save-edit">
             Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isCandidateDialogOpen} onOpenChange={setIsCandidateDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Manage Candidates</DialogTitle>
+          <DialogDescription>
+            Add candidates to {race.title}. After adding all candidates, click "Generate Analysis" to run AI predictions.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="candidateName">Candidate Name</Label>
+            <Input
+              id="candidateName"
+              value={candidateName}
+              onChange={(e) => setCandidateName(e.target.value)}
+              placeholder="e.g., Hakeem Jeffries"
+              data-testid="input-candidate-name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && candidateName.trim()) {
+                  e.preventDefault();
+                  handleAddCandidate();
+                }
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="candidateParty">Party</Label>
+            <Select value={candidateParty} onValueChange={(value) => setCandidateParty(value as Party)}>
+              <SelectTrigger id="candidateParty" data-testid="select-candidate-party">
+                <SelectValue placeholder="Select party" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Democratic">Democratic</SelectItem>
+                <SelectItem value="Republican">Republican</SelectItem>
+                <SelectItem value="Independent">Independent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsCandidateDialogOpen(false);
+              setCandidateName("");
+              setCandidateParty("Democratic");
+            }}
+          >
+            Done
+          </Button>
+          <Button 
+            onClick={handleAddCandidate} 
+            disabled={!candidateName.trim() || addCandidateDisabled} 
+            data-testid="button-add-candidate"
+          >
+            Add Candidate
           </Button>
         </DialogFooter>
       </DialogContent>
