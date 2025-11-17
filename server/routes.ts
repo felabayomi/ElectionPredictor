@@ -159,6 +159,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/races/:raceId/candidates", async (req, res) => {
+    try {
+      const candidates = await storage.getCandidatesByRace(req.params.raceId);
+      res.json(candidates);
+    } catch (error) {
+      console.error("Error fetching candidates for race:", error);
+      res.status(500).json({ error: "Failed to fetch candidates" });
+    }
+  });
+
+  app.put("/api/admin/candidates/:id", async (req, res) => {
+    try {
+      const result = insertCandidateSchema.partial().safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid candidate data", details: result.error });
+      }
+
+      const candidate = await storage.updateCandidate(req.params.id, result.data);
+      res.json(candidate);
+    } catch (error) {
+      console.error("Error updating candidate:", error);
+      res.status(500).json({ error: "Failed to update candidate" });
+    }
+  });
+
+  app.delete("/api/admin/candidates/:id", async (req, res) => {
+    try {
+      await storage.deleteCandidate(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting candidate:", error);
+      res.status(500).json({ error: "Failed to delete candidate" });
+    }
+  });
+
   app.get("/api/candidates", async (_req, res) => {
     try {
       const candidates = await storage.getAllCandidates();
