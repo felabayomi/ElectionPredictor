@@ -85,12 +85,12 @@ export default function NaturalLanguageAnalysis() {
       query: "Who would win in a Democratic presidential primary between Kamala Harris and Michelle Obama?"
     },
     {
-      label: "Ideological Comparison",
-      query: "Compare the chances of progressive vs moderate Democrats in a contested New York Senate primary"
+      label: "Presidential Primary (3+ Candidates)",
+      query: "What are the win probabilities for Gavin Newsom, Gretchen Whitmer, and Josh Shapiro in a potential 2028 Democratic presidential primary?"
     },
     {
-      label: "Governor Race Analysis",
-      query: "What are the win probabilities for Gavin Newsom, Gretchen Whitmer, and Josh Shapiro in a potential 2028 Democratic presidential primary?"
+      label: "Republican Senate Race",
+      query: "If Ted Cruz retires, who would win the 2028 Texas Republican Senate primary? Dan Crenshaw, Greg Abbott, John Cornyn"
     }
   ];
 
