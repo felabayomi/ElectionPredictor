@@ -35,12 +35,12 @@ export default function AdminDashboard() {
   });
 
   const updateRaceMutation = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      return apiRequest("PUT", `/api/admin/races/${id}`, { title });
+    mutationFn: async ({ id, title, raceType }: { id: string; title: string; raceType?: RaceType }) => {
+      return apiRequest("PUT", `/api/admin/races/${id}`, { title, type: raceType });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
-      toast({ title: "Race title updated successfully" });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      toast({ title: "Race updated successfully" });
     },
     onError: (error: any) => {
       toast({ 
@@ -272,7 +272,7 @@ export default function AdminDashboard() {
                     leadingCandidate={leadingCandidate?.name}
                     leadingProbability={leadingPrediction?.winProbability}
                     candidateCount={candidates.length}
-                    onEdit={(id, title) => updateRaceMutation.mutate({ id, title })}
+                    onEdit={(id, title, raceType) => updateRaceMutation.mutate({ id, title, raceType })}
                     editDisabled={updateRaceMutation.isPending}
                     onReanalyze={(id) => reanalyzeRaceMutation.mutate(id)}
                     reanalyzeDisabled={reanalyzingRaceId === race.id}

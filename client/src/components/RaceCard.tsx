@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Race, RaceType } from "@shared/schema";
 import { Calendar, MapPin, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
@@ -24,7 +25,7 @@ interface RaceCardProps {
   candidateCount?: number;
   onDelete?: (id: string) => void;
   deleteDisabled?: boolean;
-  onEdit?: (id: string, title: string) => void;
+  onEdit?: (id: string, title: string, raceType: RaceType) => void;
   editDisabled?: boolean;
   onReanalyze?: (id: string) => void;
   reanalyzeDisabled?: boolean;
@@ -41,10 +42,11 @@ const raceTypeColors: Record<RaceType, string> = {
 export function RaceCard({ race, leadingCandidate, leadingProbability, candidateCount, onDelete, deleteDisabled, onEdit, editDisabled, onReanalyze, reanalyzeDisabled }: RaceCardProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(race.title);
+  const [editedRaceType, setEditedRaceType] = useState<RaceType>(race.type);
 
   const handleSaveEdit = () => {
     if (onEdit && editedTitle.trim()) {
-      onEdit(race.id, editedTitle.trim());
+      onEdit(race.id, editedTitle.trim(), editedRaceType);
       setIsEditDialogOpen(false);
     }
   };
@@ -67,6 +69,7 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
                   onClick={(e) => {
                     e.preventDefault();
                     setEditedTitle(race.title);
+                    setEditedRaceType(race.type);
                     setIsEditDialogOpen(true);
                   }}
                   disabled={editDisabled}
@@ -161,9 +164,9 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
     <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Race Title</DialogTitle>
+          <DialogTitle>Edit Race</DialogTitle>
           <DialogDescription>
-            Update the title for this race. Make it clear and descriptive.
+            Update the title and race type. Make it clear and descriptive.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -176,6 +179,21 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, candidate
               placeholder="e.g., 2028 New York Senate Race"
               data-testid="input-edit-race-title"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="raceType">Race Type</Label>
+            <Select value={editedRaceType} onValueChange={(value) => setEditedRaceType(value as RaceType)}>
+              <SelectTrigger id="raceType" data-testid="select-race-type">
+                <SelectValue placeholder="Select race type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Presidential">Presidential</SelectItem>
+                <SelectItem value="Senate">Senate</SelectItem>
+                <SelectItem value="House">House</SelectItem>
+                <SelectItem value="Governor">Governor</SelectItem>
+                <SelectItem value="Local">Local</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>
