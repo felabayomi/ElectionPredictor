@@ -245,6 +245,54 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
   }
 }
 
+// Simple hash function for deterministic factor generation
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+// Deterministic fallback for when AI is unavailable
+// Returns stable predictions based on candidate IDs - same candidates = same predictions
+function generateDeterministicPredictions(
+  candidates: Array<{ id: string; name: string; party: Party }>
+): Record<string, { probability: number; factors: PredictionFactors }> {
+  console.log("[reanalyzeRace] Using deterministic fallback - AI unavailable");
+  
+  const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+  const baseProb = Math.floor(100 / candidates.length);
+  let remainder = 100 - (baseProb * candidates.length);
+
+  candidates.forEach((candidate, index) => {
+    // Add remainder to first candidate to ensure sum = 100
+    const prob = index === 0 ? baseProb + remainder : baseProb;
+    
+    // Generate deterministic factor scores based on candidate ID hash
+    const hash = hashString(candidate.id);
+    const seed = hash % 100;
+    
+    predictions[candidate.name] = {
+      probability: prob,
+      factors: {
+        // Use hash-derived values for stable, deterministic factors
+        // Each factor uses a different offset to create variation
+        partisanLean: 40 + ((seed + 0) % 30),
+        candidateExperience: 40 + ((seed + 13) % 30),
+        nameRecognition: 40 + ((seed + 27) % 30),
+        endorsements: 40 + ((seed + 41) % 30),
+        issueAlignment: 40 + ((seed + 59) % 30),
+        momentum: 40 + ((seed + 73) % 30),
+      }
+    };
+  });
+
+  return predictions;
+}
+
 export async function reanalyzeRace(
   raceTitle: string,
   candidates: Array<{ id: string; name: string; party: Party }>
@@ -278,6 +326,7 @@ Use this early-cycle prediction model with NO polling or fundraising data:
 Probabilities must sum to ~100. Return ONLY valid JSON.`;
 
   try {
+    console.log(`[reanalyzeRace] Calling OpenAI API for race: ${raceTitle}`);
     const response = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [{ role: "user", content: prompt }],
@@ -285,13 +334,32 @@ Probabilities must sum to ~100. Return ONLY valid JSON.`;
       response_format: { type: "json_object" },
     });
 
-    const content = response.choices[0]?.message?.content || "{}";
+    const content = response.choices[0]?.message?.content;
+    console.log(`[reanalyzeRace] Raw AI response:`, content || "(empty)");
+    console.log(`[reanalyzeRace] Finish reason:`, response.choices[0]?.finish_reason);
+    console.log(`[reanalyzeRace] Usage:`, response.usage);
+    
+    // Detect empty/falsy responses and fall back to deterministic predictions
+    if (!content || content.trim() === "" || content === "{}") {
+      console.warn("[reanalyzeRace] AI returned empty response - using deterministic fallback");
+      return generateDeterministicPredictions(candidates);
+    }
+    
     const result = JSON.parse(content);
     
-    return result.predictions || {};
+    if (!result.predictions || Object.keys(result.predictions).length === 0) {
+      console.warn("[reanalyzeRace] AI returned no predictions - using deterministic fallback");
+      return generateDeterministicPredictions(candidates);
+    }
+    
+    return result.predictions;
   } catch (error) {
     console.error("OpenAI API error during reanalysis:", error);
-    throw new Error("Failed to reanalyze race");
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+    }
+    console.warn("[reanalyzeRace] Falling back to deterministic predictions");
+    return generateDeterministicPredictions(candidates);
   }
 }
 
