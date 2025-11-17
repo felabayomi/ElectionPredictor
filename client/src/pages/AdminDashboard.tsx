@@ -91,26 +91,6 @@ export default function AdminDashboard() {
     },
   });
 
-  const addCandidateMutation = useMutation({
-    mutationFn: async ({ raceId, name, party }: { raceId: string; name: string; party: Party }) => {
-      return apiRequest("POST", `/api/admin/races/${raceId}/candidates`, { name, party });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
-      toast({ 
-        title: "Candidate added successfully",
-        description: "You can add more candidates or click 'Reanalyze' to generate predictions"
-      });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to add candidate", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
-
   const filteredRaces = racesData?.filter(
     (item) => selectedRaceType === "All" || item.race.type === selectedRaceType
   );
@@ -298,8 +278,6 @@ export default function AdminDashboard() {
                     reanalyzeDisabled={reanalyzingRaceId === race.id}
                     onDelete={(id) => deleteRaceMutation.mutate(id)}
                     deleteDisabled={deleteRaceMutation.isPending}
-                    onAddCandidate={(raceId, name, party) => addCandidateMutation.mutate({ raceId, name, party })}
-                    addCandidateDisabled={addCandidateMutation.isPending}
                   />
                 );
               })}
