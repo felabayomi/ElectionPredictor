@@ -533,8 +533,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         predictions,
         analysis: result.analysis,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error analyzing natural language query:", error);
+      
+      // If it's a fact-finding question, pass through the helpful message
+      if (error.message?.startsWith("FACT_FINDING_QUESTION:")) {
+        return res.status(400).json({ error: error.message });
+      }
+      
       res.status(500).json({ error: "Failed to analyze query" });
     }
   });

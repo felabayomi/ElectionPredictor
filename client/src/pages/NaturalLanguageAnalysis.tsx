@@ -158,9 +158,24 @@ export default function NaturalLanguageAnalysis() {
             </Button>
 
             {analyzeMutation.isError && (
-              <p className="text-sm text-destructive">
-                {analyzeMutation.error instanceof Error ? analyzeMutation.error.message : "Analysis failed"}
-              </p>
+              <div className={`text-sm p-3 rounded-md ${
+                analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
+                  ? "bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800"
+                  : "bg-destructive/10 text-destructive border border-destructive/20"
+              }`}>
+                <p className="font-medium mb-1">
+                  {analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
+                    ? "Research Question Detected"
+                    : "Analysis Failed"
+                  }
+                </p>
+                <p className="text-sm">
+                  {analyzeMutation.error instanceof Error 
+                    ? analyzeMutation.error.message.replace("FACT_FINDING_QUESTION: ", "")
+                    : "Analysis failed"
+                  }
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
