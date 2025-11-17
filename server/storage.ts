@@ -23,6 +23,8 @@ export interface IStorage {
   getCandidatesByRace(raceId: string): Promise<Candidate[]>;
   getNYSenateCandidates(): Promise<Candidate[]>;
   createCandidate(candidate: InsertCandidate, raceId: string): Promise<Candidate>;
+  updateCandidate(id: string, updates: Partial<InsertCandidate>): Promise<Candidate>;
+  deleteCandidate(id: string): Promise<void>;
   
   getAllRaces(): Promise<Race[]>;
   getRace(id: string): Promise<Race | undefined>;
@@ -176,6 +178,35 @@ export class DbStorage implements IStorage {
       district: candidate.district || undefined,
       state: candidate.state || undefined,
     };
+  }
+
+  async updateCandidate(id: string, updates: Partial<InsertCandidate>): Promise<Candidate> {
+    const { candidates } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const result = await this.db
+      .update(candidates)
+      .set(updates)
+      .where(eq(candidates.id, id))
+      .returning();
+    const r = result[0];
+    return {
+      id: r.id,
+      name: r.name,
+      party: r.party as Party,
+      photoUrl: r.photoUrl || undefined,
+      position: r.position || undefined,
+      district: r.district || undefined,
+      state: r.state || undefined,
+    };
+  }
+
+  async deleteCandidate(id: string): Promise<void> {
+    const { candidates, raceCandidates, predictions } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    
+    await this.db.delete(predictions).where(eq(predictions.candidateId, id));
+    await this.db.delete(raceCandidates).where(eq(raceCandidates.candidateId, id));
+    await this.db.delete(candidates).where(eq(candidates.id, id));
   }
 
   async getAllRaces(): Promise<Race[]> {
