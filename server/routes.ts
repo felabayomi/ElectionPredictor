@@ -373,6 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "Senate",
         title: (raceTitle?.trim() || "Custom Race Analysis"),
         electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        description: "Custom race created via manual candidate entry",
       };
 
       const customCandidates: Candidate[] = normalizedCandidates.map((c: any) => ({
@@ -418,57 +419,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
-      const sortedPredictions = [...predictions].sort((a, b) => b.winProbability - a.winProbability);
-      const sortedCandidates = sortedPredictions.map(p => 
-        customCandidates.find(c => c.id === p.candidateId)!
-      );
+      // Save to database
+      await storage.createRace(race);
+      
+      for (const candidate of customCandidates) {
+        await storage.createCandidate(candidate, race.id);
+      }
+      
+      for (const prediction of predictions) {
+        await storage.createPrediction(prediction);
+      }
 
-      const [candidate1, candidate2] = sortedCandidates;
-      const [prediction1, prediction2] = sortedPredictions;
-
-      const factorKeys: (keyof PredictionFactors)[] = [
-        "partisanLean",
-        "candidateExperience",
-        "nameRecognition",
-        "endorsements",
-        "issueAlignment",
-        "momentum",
-      ];
-
-      const factorLabels: Record<keyof PredictionFactors, string> = {
-        partisanLean: "Partisan Lean / Demographics",
-        candidateExperience: "Candidate Experience / Incumbency",
-        nameRecognition: "Name Recognition / Public Visibility",
-        endorsements: "Endorsements / Party Support",
-        issueAlignment: "Issue Alignment / Ideology Fit",
-        momentum: "Momentum / Public Engagement",
-      };
-
-      const factorComparison = factorKeys.map((factor) => {
-        const c1Score = prediction1.factors[factor];
-        const c2Score = prediction2.factors[factor];
-        const advantage = c1Score > c2Score ? candidate1.name : candidate2.name;
-
-        return {
-          factor,
-          label: factorLabels[factor],
-          candidate1Score: c1Score,
-          candidate2Score: c2Score,
-          advantage,
-        };
+      // Return race ID and data for redirect
+      res.json({
+        raceId: race.id,
+        title: race.title,
+        candidates: customCandidates,
+        predictions,
+        analysis: result.analysis,
       });
-
-      const comparison: ComparisonResult = {
-        candidate1,
-        candidate2,
-        race,
-        prediction1,
-        prediction2,
-        factorComparison,
-        aiInsights: result.analysis,
-      };
-
-      res.json(comparison);
     } catch (error) {
       console.error("Error generating custom prediction:", error);
       res.status(500).json({ error: "Failed to generate prediction" });

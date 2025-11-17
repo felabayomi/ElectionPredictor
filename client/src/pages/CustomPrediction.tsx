@@ -5,26 +5,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ComparisonPanel } from "@/components/ComparisonPanel";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Party, ComparisonResult } from "@shared/schema";
+import type { Party, Candidate, Prediction } from "@shared/schema";
 import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface CustomCandidate {
   name: string;
   party: Party;
 }
 
+interface AnalysisResult {
+  raceId: string;
+  title: string;
+  candidates: Candidate[];
+  predictions: Prediction[];
+  analysis: string;
+}
+
 export default function CustomPrediction() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [candidates, setCandidates] = useState<CustomCandidate[]>([
     { name: "", party: "Democratic" },
     { name: "", party: "Republican" },
   ]);
   const [raceTitle, setRaceTitle] = useState("");
-  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -37,7 +44,7 @@ export default function CustomPrediction() {
         throw new Error("Please enter at least 2 candidates");
       }
 
-      const result = await apiRequest<ComparisonResult>(
+      const result = await apiRequest<AnalysisResult>(
         "POST",
         "/api/custom-prediction",
         {
@@ -48,11 +55,14 @@ export default function CustomPrediction() {
       return result;
     },
     onSuccess: (data) => {
-      setComparisonResult(data);
       toast({
-        title: "Analysis Complete",
-        description: "Your custom prediction has been generated successfully.",
+        title: "Race Created Successfully",
+        description: "Redirecting to race details...",
       });
+      
+      setTimeout(() => {
+        setLocation(`/race/${data.raceId}`);
+      }, 1000);
     },
     onError: (error) => {
       console.error("Custom prediction error:", error);
@@ -211,10 +221,6 @@ export default function CustomPrediction() {
             )}
           </CardContent>
         </Card>
-
-        {comparisonResult && !analyzeMutation.isPending && (
-          <ComparisonPanel comparison={comparisonResult} />
-        )}
       </main>
     </div>
   );
