@@ -48,10 +48,16 @@ export default function NaturalLanguageAnalysis() {
     },
     onError: (error) => {
       console.error("Natural language analysis error:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to analyze your question. Please try again.";
+      const isFactFinding = errorMessage.includes("FACT_FINDING_QUESTION:");
+      
       toast({
-        title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to analyze your question. Please try again.",
-        variant: "destructive",
+        title: isFactFinding ? "Research Question Detected" : "Analysis Failed",
+        description: isFactFinding 
+          ? errorMessage.replace("FACT_FINDING_QUESTION: ", "")
+          : errorMessage,
+        variant: isFactFinding ? "default" : "destructive",
       });
     },
   });

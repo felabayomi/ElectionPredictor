@@ -301,6 +301,57 @@ export async function analyzeNaturalLanguageQuery(query: string): Promise<{
   predictions: Record<string, { probability: number; factors: PredictionFactors }>;
   analysis: string;
 }> {
+  // Step 1: Detect if this is a fact-finding question vs prediction question
+  const detectionPrompt = `You are a political analyst assistant. Classify this question as either "PREDICTION" or "FACT_FINDING".
+
+PREDICTION questions ask about hypothetical election scenarios or future outcomes:
+- "Who would win if X runs?"
+- "What if Y retires and Z enters the race?"
+- "Predict the outcome of X vs Y vs Z"
+- "How would A perform against B?"
+
+FACT_FINDING questions ask about past events, actual data, or research results:
+- "Which ad was more effective according to polls?"
+- "What did the Super PAC testing show?"
+- "Who won the 2020 election?"
+- "What are the latest poll numbers?"
+
+Question: "${query}"
+
+Return ONLY valid JSON:
+{
+  "questionType": "PREDICTION" or "FACT_FINDING",
+  "reason": "Brief explanation of why"
+}`;
+
+  try {
+    console.log("Detecting question type for:", query.substring(0, 100) + "...");
+    
+    const detectionResponse = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [{ role: "user", content: detectionPrompt }],
+      max_completion_tokens: 200,
+      response_format: { type: "json_object" },
+    });
+
+    const detectionContent = detectionResponse.choices[0]?.message?.content || "{}";
+    const detection = JSON.parse(detectionContent);
+    
+    console.log("Question type detection:", detection);
+    
+    if (detection.questionType === "FACT_FINDING") {
+      throw new Error("FACT_FINDING_QUESTION: This appears to be a research question about actual political data or past events, rather than an election prediction scenario. The Natural Language Analysis feature is designed to predict outcomes for hypothetical races. For fact-finding questions, try searching political news sources, FiveThirtyEight's research database, or academic polling archives.");
+    }
+  } catch (error: any) {
+    // If it's our custom fact-finding error, re-throw it
+    if (error.message?.startsWith("FACT_FINDING_QUESTION:")) {
+      throw error;
+    }
+    // Otherwise, continue with analysis (detection API call failed)
+    console.warn("Question type detection failed, proceeding with analysis:", error);
+  }
+
+  // Step 2: Proceed with normal prediction analysis
   const prompt = `You are a political analyst. Parse this election prediction query and extract ONLY the candidates who are COMPETING in the election (not those who are retiring or mentioned in passing).
 
 Query: "${query}"
