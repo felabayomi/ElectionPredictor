@@ -14,32 +14,17 @@ import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft, Users, Pencil } from "lucide-react";
-import type { FeaturedMatchup, SuggestedMatchup, Race, insertCandidateSchema } from "@shared/schema";
+import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate } from "@shared/schema";
+import { insertCandidateSchema } from "@shared/schema";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 
 interface RaceWithData {
   race: Race;
   candidates: any[];
   predictions: any[];
-}
-
-const candidateFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  party: z.enum(["Democratic", "Republican", "Independent"]),
-  photoUrl: z.string().optional(),
-});
-
-type CandidateFormData = z.infer<typeof candidateFormSchema>;
-
-interface Candidate {
-  id: string;
-  name: string;
-  party: string;
-  photoUrl?: string;
 }
 
 export default function AdminManage() {
@@ -64,8 +49,8 @@ export default function AdminManage() {
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
   
-  const form = useForm<CandidateFormData>({
-    resolver: zodResolver(candidateFormSchema),
+  const form = useForm<InsertCandidate>({
+    resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
       name: "",
       party: "Democratic",
@@ -73,8 +58,8 @@ export default function AdminManage() {
     },
   });
   
-  const editForm = useForm<CandidateFormData>({
-    resolver: zodResolver(candidateFormSchema),
+  const editForm = useForm<InsertCandidate>({
+    resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
       name: "",
       party: "Democratic",
@@ -230,7 +215,7 @@ export default function AdminManage() {
   });
   
   const addCandidateMutation = useMutation({
-    mutationFn: async (data: CandidateFormData) => {
+    mutationFn: async (data: InsertCandidate) => {
       return apiRequest("POST", `/api/admin/races/${managingRaceId}/candidates`, data);
     },
     onSuccess: () => {
@@ -245,7 +230,7 @@ export default function AdminManage() {
   });
   
   const updateCandidateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CandidateFormData }) => {
+    mutationFn: async ({ id, data }: { id: string; data: InsertCandidate }) => {
       return apiRequest("PUT", `/api/admin/candidates/${id}`, data);
     },
     onSuccess: () => {
