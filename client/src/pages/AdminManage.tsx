@@ -6,16 +6,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft } from "lucide-react";
-import type { FeaturedMatchup, SuggestedMatchup, Race } from "@shared/schema";
+import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft, Users, Pencil } from "lucide-react";
+import type { FeaturedMatchup, SuggestedMatchup, Race, insertCandidateSchema } from "@shared/schema";
 import { useState } from "react";
 import { Link } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface RaceWithData {
   race: Race;
   candidates: any[];
   predictions: any[];
+}
+
+const candidateFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  party: z.enum(["Democratic", "Republican", "Independent"]),
+  photoUrl: z.string().optional(),
+});
+
+type CandidateFormData = z.infer<typeof candidateFormSchema>;
+
+interface Candidate {
+  id: string;
+  name: string;
+  party: string;
+  photoUrl?: string;
 }
 
 export default function AdminManage() {
@@ -35,6 +59,28 @@ export default function AdminManage() {
     description: "",
   });
   const [showRaceForm, setShowRaceForm] = useState(false);
+  
+  const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
+  
+  const form = useForm<CandidateFormData>({
+    resolver: zodResolver(candidateFormSchema),
+    defaultValues: {
+      name: "",
+      party: "Democratic",
+      photoUrl: "",
+    },
+  });
+  
+  const editForm = useForm<CandidateFormData>({
+    resolver: zodResolver(candidateFormSchema),
+    defaultValues: {
+      name: "",
+      party: "Democratic",
+      photoUrl: "",
+    },
+  });
 
   const { data: featuredMatchups = [], isLoading: loadingFeatured } = useQuery<FeaturedMatchup[]>({
     queryKey: ["/api/featured-matchups"],
@@ -48,6 +94,11 @@ export default function AdminManage() {
 
   const { data: racesData = [] } = useQuery<RaceWithData[]>({
     queryKey: ["/api/races"],
+  });
+  
+  const { data: raceCandidates = [], isLoading: loadingCandidates } = useQuery<Candidate[]>({
+    queryKey: ["/api/admin/races", managingRaceId, "candidates"],
+    enabled: !!managingRaceId,
   });
 
   const createMutation = useMutation({
@@ -175,6 +226,52 @@ export default function AdminManage() {
         description: error.message,
         variant: "destructive" 
       });
+    },
+  });
+  
+  const addCandidateMutation = useMutation({
+    mutationFn: async (data: CandidateFormData) => {
+      return apiRequest("POST", `/api/admin/races/${managingRaceId}/candidates`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/races", managingRaceId, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      form.reset();
+      toast({ title: "Candidate added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to add candidate", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const updateCandidateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: CandidateFormData }) => {
+      return apiRequest("PUT", `/api/admin/candidates/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/races", managingRaceId, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setEditingCandidate(null);
+      editForm.reset();
+      toast({ title: "Candidate updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update candidate", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const deleteCandidateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/admin/candidates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/races", managingRaceId, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setDeletingCandidateId(null);
+      toast({ title: "Candidate deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to delete candidate", description: error.message, variant: "destructive" });
     },
   });
 
@@ -348,15 +445,26 @@ export default function AdminManage() {
                       )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    data-testid={`button-delete-race-${race.id}`}
-                    onClick={() => deleteRaceMutation.mutate(race.id)}
-                    disabled={deleteRaceMutation.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid={`button-manage-candidates-${race.id}`}
+                      onClick={() => setManagingRaceId(race.id)}
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      Manage Candidates
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      data-testid={`button-delete-race-${race.id}`}
+                      onClick={() => deleteRaceMutation.mutate(race.id)}
+                      disabled={deleteRaceMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -542,6 +650,276 @@ export default function AdminManage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Dialog open={!!managingRaceId} onOpenChange={(open) => {
+        if (!open) {
+          setManagingRaceId(null);
+          form.reset();
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Manage Candidates</DialogTitle>
+            <DialogDescription>
+              Add, edit, or remove candidates for this race
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden flex flex-col gap-6">
+            {loadingCandidates ? (
+              <p className="text-muted-foreground">Loading candidates...</p>
+            ) : raceCandidates.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Existing Candidates ({raceCandidates.length})</Label>
+                <ScrollArea className="h-[200px] rounded-md border p-4">
+                  <div className="space-y-3">
+                    {raceCandidates.map((candidate) => (
+                      <div
+                        key={candidate.id}
+                        className="flex items-center justify-between p-3 rounded-md border"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <Avatar className="h-10 w-10">
+                            {candidate.photoUrl && <AvatarImage src={candidate.photoUrl} alt={candidate.name} />}
+                            <AvatarFallback>
+                              {candidate.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{candidate.name}</p>
+                            <Badge variant="outline" className="mt-1">
+                              {candidate.party}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            data-testid={`button-edit-candidate-${candidate.id}`}
+                            onClick={() => {
+                              setEditingCandidate(candidate);
+                              editForm.reset({
+                                name: candidate.name,
+                                party: candidate.party as "Democratic" | "Republican" | "Independent",
+                                photoUrl: candidate.photoUrl || "",
+                              });
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            data-testid={`button-delete-candidate-${candidate.id}`}
+                            onClick={() => setDeletingCandidateId(candidate.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No candidates yet. Add one below.</p>
+            )}
+            
+            <div className="space-y-4">
+              <Label>Add New Candidate</Label>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => addCandidateMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} data-testid="input-candidate-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="party"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Party</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-candidate-party">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Democratic">Democratic</SelectItem>
+                            <SelectItem value="Republican">Republican</SelectItem>
+                            <SelectItem value="Independent">Independent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="photoUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Photo URL (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://..." {...field} data-testid="input-candidate-photo" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    data-testid="button-add-candidate"
+                    disabled={addCandidateMutation.isPending}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    {addCandidateMutation.isPending ? "Adding..." : "Add Candidate"}
+                  </Button>
+                </form>
+              </Form>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={!!editingCandidate} onOpenChange={(open) => {
+        if (!open) {
+          setEditingCandidate(null);
+          editForm.reset();
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Candidate</DialogTitle>
+            <DialogDescription>
+              Update candidate information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => {
+              if (editingCandidate) {
+                updateCandidateMutation.mutate({ id: editingCandidate.id, data });
+              }
+            })} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-candidate-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="party"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Party</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-candidate-party">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Democratic">Democratic</SelectItem>
+                        <SelectItem value="Republican">Republican</SelectItem>
+                        <SelectItem value="Independent">Independent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="photoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photo URL (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-candidate-photo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setEditingCandidate(null);
+                    editForm.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  data-testid="button-update-candidate"
+                  disabled={updateCandidateMutation.isPending}
+                >
+                  {updateCandidateMutation.isPending ? "Updating..." : "Update"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      <AlertDialog open={!!deletingCandidateId} onOpenChange={(open) => {
+        if (!open) setDeletingCandidateId(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this candidate and all associated predictions. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-delete-candidate"
+              onClick={() => {
+                if (deletingCandidateId) {
+                  deleteCandidateMutation.mutate(deletingCandidateId);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
