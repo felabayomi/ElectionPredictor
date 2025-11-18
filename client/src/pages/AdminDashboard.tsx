@@ -6,13 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { RaceCard } from "@/components/RaceCard";
 import { CandidateCard } from "@/components/CandidateCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup, Party } from "@shared/schema";
+import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup, Party, InsertCandidate } from "@shared/schema";
+import { insertCandidateSchema } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info, Zap } from "lucide-react";
+import { BarChart3, Info, Zap, Users, Pencil, Trash2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface RaceWithPredictions {
   race: Race;
@@ -20,11 +29,36 @@ interface RaceWithPredictions {
   predictions: Prediction[];
 }
 
+function getInitials(name: string): string {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
 export default function AdminDashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
   const [reanalyzingRaceId, setReanalyzingRaceId] = useState<string | null>(null);
+  const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const form = useForm<InsertCandidate>({
+    resolver: zodResolver(insertCandidateSchema),
+    defaultValues: {
+      name: "",
+      party: "Democratic",
+      photoUrl: "",
+    },
+  });
+  
+  const editForm = useForm<InsertCandidate>({
+    resolver: zodResolver(insertCandidateSchema),
+    defaultValues: {
+      name: "",
+      party: "Democratic",
+      photoUrl: "",
+    },
+  });
 
   const { data: racesData, isLoading } = useQuery<RaceWithPredictions[]>({
     queryKey: ["/api/races"],
@@ -32,6 +66,11 @@ export default function AdminDashboard() {
 
   const { data: featuredMatchups = [], isLoading: loadingFeatured } = useQuery<FeaturedMatchup[]>({
     queryKey: ["/api/featured-matchups"],
+  });
+  
+  const { data: raceCandidates = [], isLoading: loadingCandidates } = useQuery<Candidate[]>({
+    queryKey: ["/api/admin/races", managingRaceId, "candidates"],
+    enabled: !!managingRaceId,
   });
 
   const updateRaceMutation = useMutation({
@@ -88,6 +127,51 @@ export default function AdminDashboard() {
         description: error.message,
         variant: "destructive" 
       });
+    },
+  });
+  
+  const addCandidateMutation = useMutation({
+    mutationFn: async (data: InsertCandidate) => {
+      return await apiRequest<Candidate>("POST", `/api/admin/races/${managingRaceId}/candidates`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/races", managingRaceId, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      form.reset();
+      toast({ title: "Candidate added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to add candidate", variant: "destructive" });
+    },
+  });
+  
+  const updateCandidateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCandidate> }) => {
+      return await apiRequest<Candidate>("PUT", `/api/admin/candidates/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/races", managingRaceId, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setEditingCandidate(null);
+      toast({ title: "Candidate updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update candidate", variant: "destructive" });
+    },
+  });
+  
+  const deleteCandidateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/admin/candidates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/races", managingRaceId, "candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setDeletingCandidateId(null);
+      toast({ title: "Candidate deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete candidate", variant: "destructive" });
     },
   });
 
@@ -274,6 +358,7 @@ export default function AdminDashboard() {
                     candidateCount={candidates.length}
                     onEdit={(id, title, raceType) => updateRaceMutation.mutate({ id, title, raceType })}
                     editDisabled={updateRaceMutation.isPending}
+                    onManageCandidates={(id) => setManagingRaceId(id)}
                     onReanalyze={(id) => reanalyzeRaceMutation.mutate(id)}
                     reanalyzeDisabled={reanalyzingRaceId === race.id}
                     onDelete={(id) => deleteRaceMutation.mutate(id)}
@@ -293,6 +378,283 @@ export default function AdminDashboard() {
       </main>
 
       <MethodologyModal open={methodologyOpen} onOpenChange={setMethodologyOpen} />
+      
+      {/* Manage Candidates Dialog */}
+      <Dialog open={!!managingRaceId} onOpenChange={(open) => {
+        if (!open) {
+          setManagingRaceId(null);
+          form.reset();
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Candidates</DialogTitle>
+            <DialogDescription>
+              Add, edit, or remove candidates for this race
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {loadingCandidates ? (
+              <div className="text-center py-4 text-muted-foreground">Loading candidates...</div>
+            ) : raceCandidates.length > 0 ? (
+              <>
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Existing Candidates ({raceCandidates.length})</h4>
+                  <div className="max-h-[30vh] overflow-y-auto border rounded-md p-4 space-y-2">
+                    {raceCandidates.map((candidate) => (
+                      <div key={candidate.id} className="flex items-center gap-3 p-2 rounded-md hover-elevate" data-testid={`candidate-item-${candidate.id}`}>
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={candidate.photoUrl} alt={candidate.name} />
+                          <AvatarFallback>{getInitials(candidate.name)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{candidate.name}</p>
+                          <Badge variant="outline" className="text-xs">{candidate.party}</Badge>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingCandidate(candidate);
+                              editForm.reset({
+                                name: candidate.name,
+                                party: candidate.party,
+                                photoUrl: candidate.photoUrl || "",
+                              });
+                            }}
+                            data-testid={`button-edit-candidate-${candidate.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeletingCandidateId(candidate.id)}
+                            data-testid={`button-delete-candidate-${candidate.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="border-t pt-4" />
+              </>
+            ) : null}
+            
+            <div>
+              <h4 className="text-sm font-medium mb-3">Add New Candidate</h4>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => {
+                  addCandidateMutation.mutate(data);
+                })} className="space-y-3">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Hakeem Jeffries" {...field} data-testid="input-candidate-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="party"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Party</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-candidate-party">
+                              <SelectValue placeholder="Select party" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Democratic">Democratic</SelectItem>
+                            <SelectItem value="Republican">Republican</SelectItem>
+                            <SelectItem value="Independent">Independent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="photoUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Photo URL (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://example.com/photo.jpg" {...field} data-testid="input-candidate-photo" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setManagingRaceId(null);
+                        form.reset();
+                      }}
+                    >
+                      Done
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="flex-1"
+                      data-testid="button-add-candidate"
+                      disabled={addCandidateMutation.isPending}
+                    >
+                      {addCandidateMutation.isPending ? "Adding..." : "Add Candidate"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Candidate Dialog */}
+      <Dialog open={!!editingCandidate} onOpenChange={(open) => {
+        if (!open) {
+          setEditingCandidate(null);
+          editForm.reset();
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Candidate</DialogTitle>
+            <DialogDescription>
+              Update candidate information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => {
+              if (editingCandidate) {
+                updateCandidateMutation.mutate({ id: editingCandidate.id, data });
+              }
+            })} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-candidate-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="party"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Party</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-candidate-party">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Democratic">Democratic</SelectItem>
+                        <SelectItem value="Republican">Republican</SelectItem>
+                        <SelectItem value="Independent">Independent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="photoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photo URL (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-candidate-photo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setEditingCandidate(null);
+                    editForm.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  data-testid="button-update-candidate"
+                  disabled={updateCandidateMutation.isPending}
+                >
+                  {updateCandidateMutation.isPending ? "Updating..." : "Update"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Candidate Confirmation */}
+      <AlertDialog open={!!deletingCandidateId} onOpenChange={(open) => {
+        if (!open) setDeletingCandidateId(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this candidate and all associated predictions. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-delete-candidate"
+              onClick={() => {
+                if (deletingCandidateId) {
+                  deleteCandidateMutation.mutate(deletingCandidateId);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
