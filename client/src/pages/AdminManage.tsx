@@ -486,7 +486,7 @@ export default function AdminManage() {
           form.reset();
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Candidates</DialogTitle>
             <DialogDescription>
@@ -494,13 +494,13 @@ export default function AdminManage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-hidden flex flex-col gap-6">
+          <div className="space-y-6 pb-2">
             {loadingCandidates ? (
               <p className="text-muted-foreground">Loading candidates...</p>
             ) : raceCandidates.length > 0 ? (
               <div className="space-y-2">
                 <Label>Existing Candidates ({raceCandidates.length})</Label>
-                <ScrollArea className="h-[200px] rounded-md border p-4">
+                <div className="max-h-[30vh] overflow-y-auto rounded-md border p-4">
                   <div className="space-y-3">
                     {raceCandidates.map((candidate) => (
                       <div
@@ -549,7 +549,7 @@ export default function AdminManage() {
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No candidates yet. Add one below.</p>
