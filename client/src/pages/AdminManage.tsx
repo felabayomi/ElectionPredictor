@@ -548,28 +548,42 @@ export default function AdminManage() {
                 <p className="text-muted-foreground">No featured matchups yet. Create one above or use a suggestion.</p>
               ) : (
                 <div className="space-y-3">
-                  {featuredMatchups.map((matchup) => (
-                    <div
-                      key={matchup.id}
-                      data-testid={`matchup-${matchup.id}`}
-                      className="flex items-start justify-between p-4 rounded-md border"
-                    >
-                      <div className="flex-1">
-                        <h3 className="font-semibold mb-1">{matchup.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-1">{matchup.description}</p>
-                        <p className="text-xs text-muted-foreground">{matchup.url}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        data-testid={`button-delete-${matchup.id}`}
-                        onClick={() => deleteMutation.mutate(matchup.id)}
-                        disabled={deleteMutation.isPending}
+                  {featuredMatchups.map((matchup) => {
+                    const raceId = matchup.url.split('/').pop() || '';
+                    return (
+                      <div
+                        key={matchup.id}
+                        data-testid={`matchup-${matchup.id}`}
+                        className="flex items-start justify-between p-4 rounded-md border"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="flex-1">
+                          <h3 className="font-semibold mb-1">{matchup.title}</h3>
+                          <p className="text-sm text-muted-foreground mb-1">{matchup.description}</p>
+                          <p className="text-xs text-muted-foreground">{matchup.url}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid={`button-manage-matchup-candidates-${matchup.id}`}
+                            onClick={() => setManagingRaceId(raceId)}
+                          >
+                            <Users className="w-4 h-4 mr-2" />
+                            Manage Candidates
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            data-testid={`button-delete-${matchup.id}`}
+                            onClick={() => deleteMutation.mutate(matchup.id)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
