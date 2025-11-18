@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft, Users, Pencil } from "lucide-react";
+import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft, Users, Pencil, RefreshCw } from "lucide-react";
 import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate } from "@shared/schema";
 import { insertCandidateSchema } from "@shared/schema";
 import { useState } from "react";
@@ -48,6 +48,7 @@ export default function AdminManage() {
   const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
+  const [reanalyzingRaceId, setReanalyzingRaceId] = useState<string | null>(null);
   
   const form = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
@@ -208,6 +209,29 @@ export default function AdminManage() {
     onError: (error: any) => {
       toast({ 
         title: "Failed to delete race", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+  
+  const reanalyzeRaceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      setReanalyzingRaceId(id);
+      return apiRequest("POST", `/api/admin/races/${id}/reanalyze`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      setReanalyzingRaceId(null);
+      toast({ 
+        title: "Race reanalyzed successfully",
+        description: "Predictions updated based on current candidates"
+      });
+    },
+    onError: (error: any) => {
+      setReanalyzingRaceId(null);
+      toast({ 
+        title: "Failed to reanalyze race", 
         description: error.message,
         variant: "destructive" 
       });
@@ -400,6 +424,25 @@ export default function AdminManage() {
                           >
                             <Users className="w-4 h-4 mr-2" />
                             Manage Candidates
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid={`button-reanalyze-matchup-${matchup.id}`}
+                            onClick={() => reanalyzeRaceMutation.mutate(raceId)}
+                            disabled={reanalyzingRaceId === raceId}
+                          >
+                            {reanalyzingRaceId === raceId ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                Reanalyzing...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Reanalyze
+                              </>
+                            )}
                           </Button>
                           <Button
                             variant="ghost"
