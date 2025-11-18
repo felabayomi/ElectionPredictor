@@ -40,6 +40,8 @@ export default function AdminDashboard() {
   const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
+  const [editingMatchup, setEditingMatchup] = useState<FeaturedMatchup | null>(null);
+  const [deletingMatchupId, setDeletingMatchupId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const form = useForm<InsertCandidate>({
@@ -175,6 +177,42 @@ export default function AdminDashboard() {
     },
   });
 
+  const updateMatchupMutation = useMutation({
+    mutationFn: async ({ id, title, description, url }: { id: string; title: string; description: string; url: string }) => {
+      return apiRequest("PUT", `/api/admin/featured-matchups/${id}`, { title, description, url });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/featured-matchups"] });
+      setEditingMatchup(null);
+      toast({ title: "Featured matchup updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update matchup", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteMatchupMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/admin/featured-matchups/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/featured-matchups"] });
+      setDeletingMatchupId(null);
+      toast({ title: "Featured matchup deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete matchup", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   const filteredRaces = racesData?.filter(
     (item) => selectedRaceType === "All" || item.race.type === selectedRaceType
   );
@@ -303,16 +341,38 @@ export default function AdminDashboard() {
             <h3 className="text-2xl font-semibold mb-4">Featured Matchups</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {featuredMatchups.map((matchup) => (
-                <Link key={matchup.id} href={matchup.url}>
-                  <Card className="hover-elevate active-elevate-2 cursor-pointer h-full" data-testid={`card-featured-${matchup.id}`}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">{matchup.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{matchup.description}</p>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <Card key={matchup.id} className="hover-elevate active-elevate-2 h-full" data-testid={`card-featured-${matchup.id}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={matchup.url} className="flex-1">
+                        <CardTitle className="text-lg hover:underline cursor-pointer">{matchup.title}</CardTitle>
+                      </Link>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-testid={`button-edit-matchup-${matchup.id}`}
+                          onClick={() => setEditingMatchup(matchup)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-testid={`button-delete-matchup-${matchup.id}`}
+                          onClick={() => setDeletingMatchupId(matchup.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href={matchup.url}>
+                      <p className="text-sm text-muted-foreground hover:underline cursor-pointer">{matchup.description}</p>
+                    </Link>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
@@ -646,6 +706,108 @@ export default function AdminDashboard() {
               onClick={() => {
                 if (deletingCandidateId) {
                   deleteCandidateMutation.mutate(deletingCandidateId);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Featured Matchup Dialog */}
+      <Dialog open={!!editingMatchup} onOpenChange={(open) => {
+        if (!open) setEditingMatchup(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Featured Matchup</DialogTitle>
+            <DialogDescription>
+              Update the title, description, or URL for this featured matchup
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            if (editingMatchup) {
+              updateMatchupMutation.mutate({
+                id: editingMatchup.id,
+                title: formData.get('title') as string,
+                description: formData.get('description') as string,
+                url: formData.get('url') as string,
+              });
+            }
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="title" className="text-sm font-medium">Title</label>
+              <Input
+                id="title"
+                name="title"
+                defaultValue={editingMatchup?.title}
+                required
+                data-testid="input-matchup-title"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium">Description</label>
+              <Input
+                id="description"
+                name="description"
+                defaultValue={editingMatchup?.description}
+                required
+                data-testid="input-matchup-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="url" className="text-sm font-medium">URL</label>
+              <Input
+                id="url"
+                name="url"
+                defaultValue={editingMatchup?.url}
+                required
+                data-testid="input-matchup-url"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingMatchup(null)}
+                data-testid="button-cancel-edit-matchup"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateMatchupMutation.isPending}
+                data-testid="button-save-matchup"
+              >
+                {updateMatchupMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Featured Matchup Confirmation */}
+      <AlertDialog open={!!deletingMatchupId} onOpenChange={(open) => {
+        if (!open) setDeletingMatchupId(null);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Featured Matchup</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove this featured matchup from the homepage. The race itself will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-delete-matchup"
+              onClick={() => {
+                if (deletingMatchupId) {
+                  deleteMatchupMutation.mutate(deletingMatchupId);
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

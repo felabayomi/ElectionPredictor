@@ -620,6 +620,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/admin/featured-matchups/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validationResult = insertFeaturedMatchupSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ error: "Invalid matchup data", details: validationResult.error.errors });
+      }
+
+      const matchup = await storage.updateFeaturedMatchup(id, validationResult.data);
+      res.json(matchup);
+    } catch (error) {
+      console.error("Error updating featured matchup:", error);
+      res.status(500).json({ error: "Failed to update featured matchup" });
+    }
+  });
+
   app.delete("/api/admin/featured-matchups/:id", async (req, res) => {
     try {
       const { id } = req.params;

@@ -40,6 +40,7 @@ export interface IStorage {
   
   getAllFeaturedMatchups(): Promise<FeaturedMatchup[]>;
   createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup>;
+  updateFeaturedMatchup(id: string, updates: Partial<InsertFeaturedMatchup>): Promise<FeaturedMatchup>;
   deleteFeaturedMatchup(id: string): Promise<void>;
   updateFeaturedMatchupOrder(id: string, newOrder: number): Promise<void>;
 }
@@ -407,6 +408,27 @@ export class DbStorage implements IStorage {
       ...matchup,
       displayOrder,
     }).returning();
+    
+    const m = result[0];
+    return {
+      id: m.id,
+      title: m.title,
+      description: m.description,
+      url: m.url,
+      displayOrder: m.displayOrder,
+      createdAt: m.createdAt.toISOString(),
+    };
+  }
+
+  async updateFeaturedMatchup(id: string, updates: Partial<InsertFeaturedMatchup>): Promise<FeaturedMatchup> {
+    const { featuredMatchups } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    
+    const result = await this.db
+      .update(featuredMatchups)
+      .set(updates)
+      .where(eq(featuredMatchups.id, id))
+      .returning();
     
     const m = result[0];
     return {
