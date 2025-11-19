@@ -38,7 +38,7 @@ export default function Dashboard() {
 
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
-    return filteredRaces.slice(0, 6);
+    return filteredRaces;
   };
 
   return (

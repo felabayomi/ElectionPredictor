@@ -219,7 +219,7 @@ export default function AdminDashboard() {
 
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
-    return filteredRaces.slice(0, 6);
+    return filteredRaces;
   };
 
   return (
