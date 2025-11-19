@@ -7,6 +7,89 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
+/**
+ * Normalizes probabilities to guarantee:
+ * 1. Unique probabilities (minimum 0.3% gap)
+ * 2. Sum = exactly 100.0%
+ * 3. Strict descending order
+ * 4. All >= 0.1%
+ * 
+ * Uses integer tenths (0.1% units) for exact arithmetic
+ */
+function normalizeUniqueProbabilities(weightedScores: number[]): number[] {
+  const SCALE = 10; // Work in tenths of a percent
+  const MIN_PROB = 1; // 0.1% in tenths
+  const MIN_GAP = 3; // 0.3% gap in tenths
+  const TARGET_TOTAL = 1000; // 100.0% in tenths
+  
+  const n = weightedScores.length;
+  
+  // Step 1: Build baseline vector ensuring strict order
+  const baseline = weightedScores.map((_, i) => MIN_PROB + MIN_GAP * (n - 1 - i));
+  const baselineSum = baseline.reduce((sum, b) => sum + b, 0);
+  
+  if (baselineSum > TARGET_TOTAL) {
+    throw new Error(`Too many candidates (${n}) for unique probabilities with 0.1% minimum and 0.3% gap`);
+  }
+  
+  // Step 2: Calculate weight shares for distributing extra pool
+  const totalWeight = weightedScores.reduce((sum, w) => sum + w, 0);
+  const weightShares = weightedScores.map(w => w / totalWeight);
+  const extraPool = TARGET_TOTAL - baselineSum;
+  
+  // Step 3: Compute ideal allocations
+  const ideal = baseline.map((b, i) => b + extraPool * weightShares[i]);
+  
+  // Step 4: Floor ideal values and track remainders
+  const prob = ideal.map(v => Math.floor(v));
+  const remainders = ideal.map((v, i) => ({ index: i, remainder: v - prob[i] }));
+  remainders.sort((a, b) => b.remainder - a.remainder); // Descending by remainder
+  
+  // Step 5: Distribute leftover units respecting upper bounds
+  let allocated = prob.reduce((sum, p) => sum + p, 0);
+  for (const { index } of remainders) {
+    if (allocated >= TARGET_TOTAL) break;
+    
+    const upperBound = index === 0 ? TARGET_TOTAL : prob[index - 1] - MIN_GAP;
+    if (prob[index] < upperBound) {
+      prob[index]++;
+      allocated++;
+    }
+  }
+  
+  // Step 6: Redistribute any remaining shortfall/excess
+  const remaining = TARGET_TOTAL - allocated;
+  if (remaining > 0) {
+    // Top-down addition
+    for (let i = 0; i < n && allocated < TARGET_TOTAL; i++) {
+      const upperBound = i === 0 ? TARGET_TOTAL : prob[i - 1] - MIN_GAP;
+      while (prob[i] < upperBound && allocated < TARGET_TOTAL) {
+        prob[i]++;
+        allocated++;
+      }
+    }
+  } else if (remaining < 0) {
+    // Bottom-up subtraction
+    for (let i = n - 1; i >= 0 && allocated > TARGET_TOTAL; i--) {
+      const lowerBound = i === n - 1 ? MIN_PROB : prob[i + 1] + MIN_GAP;
+      while (prob[i] > lowerBound && allocated > TARGET_TOTAL) {
+        prob[i]--;
+        allocated--;
+      }
+    }
+  }
+  
+  // Step 7: Final sanity sweep - enforce gaps strictly
+  for (let i = 1; i < n; i++) {
+    if (prob[i] >= prob[i - 1] - MIN_GAP + 1) {
+      prob[i] = prob[i - 1] - MIN_GAP;
+    }
+  }
+  
+  // Convert tenths back to percentages
+  return prob.map(p => p / SCALE);
+}
+
 export async function generateComparisonInsights(
   candidate1Name: string,
   candidate2Name: string,
@@ -78,7 +161,7 @@ Generate realistic win probabilities and factor scores (0-100) for each candidat
 
 Use the weighted scoring system: partisanLean (30%), candidateExperience (20%), nameRecognition (15%), endorsements (15%), issueAlignment (10%), momentum (10%). NO polling or fundraising data.
 
-Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
+CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. Even slight differences in factors should produce different probabilities (e.g., 23.4%, 22.7%, 19.3%, NOT 20.0%, 20.0%, 20.0%). Probabilities should sum to approximately 100 and be realistic and data-driven.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -100,20 +183,51 @@ Ensure probabilities sum to approximately 100. Be realistic and data-driven.`;
     console.error("OpenAI API error:", error);
     
     const fallbackPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-    const baseProb = 100 / candidates.length;
     
-    candidates.forEach((c, i) => {
-      const variance = (Math.random() - 0.5) * 20;
-      fallbackPredictions[c.name] = {
-        probability: Math.max(5, Math.min(95, baseProb + variance)),
-        factors: {
-          partisanLean: 40 + Math.random() * 40,
-          candidateExperience: 40 + Math.random() * 40,
-          nameRecognition: 40 + Math.random() * 40,
-          endorsements: 40 + Math.random() * 40,
-          issueAlignment: 40 + Math.random() * 40,
-          momentum: 40 + Math.random() * 40,
-        },
+    // Generate deterministic factor scores based on candidate properties
+    const candidatesWithScores = candidates.map((c, i) => {
+      // Use name hash and index for deterministic but varied scores
+      const nameHash = c.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const seed = (nameHash + i * 17) % 100;
+      
+      // Deterministic factor generation (40-80 range for variety)
+      const factors: PredictionFactors = {
+        partisanLean: 40 + ((seed * 7) % 40),
+        candidateExperience: 40 + ((seed * 11) % 40),
+        nameRecognition: 40 + ((seed * 13) % 40),
+        endorsements: 40 + ((seed * 17) % 40),
+        issueAlignment: 40 + ((seed * 19) % 40),
+        momentum: 40 + ((seed * 23) % 40),
+      };
+      
+      // Calculate weighted composite score using the 6-factor model
+      const compositeScore = 
+        (factors.partisanLean * 0.30) +
+        (factors.candidateExperience * 0.20) +
+        (factors.nameRecognition * 0.15) +
+        (factors.endorsements * 0.15) +
+        (factors.issueAlignment * 0.10) +
+        (factors.momentum * 0.10);
+      
+      return { candidate: c, factors, compositeScore };
+    });
+    
+    // Sort by composite score descending, then alphabetically for ties
+    candidatesWithScores.sort((a, b) => {
+      const scoreDiff = b.compositeScore - a.compositeScore;
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.candidate.name.localeCompare(b.candidate.name);
+    });
+    
+    // Use shared helper to normalize probabilities with guaranteed uniqueness
+    const weightedScores = candidatesWithScores.map(item => item.compositeScore);
+    const probs = normalizeUniqueProbabilities(weightedScores);
+    
+    // Assign probabilities
+    candidatesWithScores.forEach((item, i) => {
+      fallbackPredictions[item.candidate.name] = {
+        probability: probs[i],
+        factors: item.factors,
       };
     });
     
@@ -263,30 +377,51 @@ function generateDeterministicPredictions(
 ): Record<string, { probability: number; factors: PredictionFactors }> {
   console.log("[reanalyzeRace] Using deterministic fallback - AI unavailable");
   
-  const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-  const baseProb = Math.floor(100 / candidates.length);
-  let remainder = 100 - (baseProb * candidates.length);
-
-  candidates.forEach((candidate, index) => {
-    // Add remainder to first candidate to ensure sum = 100
-    const prob = index === 0 ? baseProb + remainder : baseProb;
-    
+  // Generate deterministic factor scores and calculate weighted composite scores
+  const candidatesWithScores = candidates.map((candidate, index) => {
     // Generate deterministic factor scores based on candidate ID hash
     const hash = hashString(candidate.id);
     const seed = hash % 100;
     
-    predictions[candidate.name] = {
-      probability: prob,
-      factors: {
-        // Use hash-derived values for stable, deterministic factors
-        // Each factor uses a different offset to create variation
-        partisanLean: 40 + ((seed + 0) % 30),
-        candidateExperience: 40 + ((seed + 13) % 30),
-        nameRecognition: 40 + ((seed + 27) % 30),
-        endorsements: 40 + ((seed + 41) % 30),
-        issueAlignment: 40 + ((seed + 59) % 30),
-        momentum: 40 + ((seed + 73) % 30),
-      }
+    const factors: PredictionFactors = {
+      // Use hash-derived values for stable, deterministic factors (40-70 range)
+      partisanLean: 40 + ((seed + 0) % 30),
+      candidateExperience: 40 + ((seed + 13) % 30),
+      nameRecognition: 40 + ((seed + 27) % 30),
+      endorsements: 40 + ((seed + 41) % 30),
+      issueAlignment: 40 + ((seed + 59) % 30),
+      momentum: 40 + ((seed + 73) % 30),
+    };
+    
+    // Calculate weighted composite score using the 6-factor model
+    const compositeScore = 
+      (factors.partisanLean * 0.30) +
+      (factors.candidateExperience * 0.20) +
+      (factors.nameRecognition * 0.15) +
+      (factors.endorsements * 0.15) +
+      (factors.issueAlignment * 0.10) +
+      (factors.momentum * 0.10);
+    
+    return { candidate, factors, compositeScore };
+  });
+  
+  // Sort by composite score descending, then alphabetically for ties
+  candidatesWithScores.sort((a, b) => {
+    const scoreDiff = b.compositeScore - a.compositeScore;
+    if (scoreDiff !== 0) return scoreDiff;
+    return a.candidate.name.localeCompare(b.candidate.name);
+  });
+  
+  // Use shared helper to normalize probabilities with guaranteed uniqueness
+  const weightedScores = candidatesWithScores.map(item => item.compositeScore);
+  const probs = normalizeUniqueProbabilities(weightedScores);
+  
+  // Assign probabilities
+  const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+  candidatesWithScores.forEach((item, index) => {
+    predictions[item.candidate.name] = {
+      probability: probs[index],
+      factors: item.factors,
     };
   });
 
@@ -323,7 +458,7 @@ Use this early-cycle prediction model with NO polling or fundraising data:
   }
 }
 
-Probabilities must sum to ~100. Return ONLY valid JSON.`;
+CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. Even slight differences in factors should produce different probabilities (e.g., 23.4%, 22.7%, 19.3%, NOT 20.0%, 20.0%, 20.0%). Probabilities must sum to ~100. Return ONLY valid JSON.`;
 
   try {
     console.log(`[reanalyzeRace] Calling OpenAI API for race: ${raceTitle}`);
