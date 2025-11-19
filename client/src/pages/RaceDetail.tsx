@@ -64,7 +64,11 @@ export default function RaceDetail() {
       candidate,
       prediction: predictions.find((p) => p.candidateId === candidate.id),
     }))
-    .sort((a, b) => (b.prediction?.winProbability || 0) - (a.prediction?.winProbability || 0));
+    .sort((a, b) => {
+      const probDiff = (b.prediction?.winProbability || 0) - (a.prediction?.winProbability || 0);
+      if (probDiff !== 0) return probDiff;
+      return a.candidate.name.localeCompare(b.candidate.name);
+    });
 
   return (
     <div className="min-h-screen bg-background">

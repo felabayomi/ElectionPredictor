@@ -194,18 +194,26 @@ export default function Dashboard() {
             {filteredRaces && filteredRaces.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {getFeaturedRaces().map(({ race, candidates, predictions }) => {
-                  const leadingPrediction = predictions.reduce(
-                    (max, pred) => (pred.winProbability > max.winProbability ? pred : max),
-                    predictions[0]
-                  );
-                  const leadingCandidate = candidates.find((c) => c.id === leadingPrediction?.candidateId);
+                  const candidatesWithPredictions = predictions
+                    .map((pred) => ({
+                      prediction: pred,
+                      candidate: candidates.find((c) => c.id === pred.candidateId),
+                    }))
+                    .filter((item) => item.candidate)
+                    .sort((a, b) => {
+                      const probDiff = b.prediction.winProbability - a.prediction.winProbability;
+                      if (probDiff !== 0) return probDiff;
+                      return (a.candidate?.name || "").localeCompare(b.candidate?.name || "");
+                    });
+
+                  const leadingItem = candidatesWithPredictions[0];
 
                   return (
                     <RaceCard
                       key={race.id}
                       race={race}
-                    leadingCandidate={leadingCandidate?.name}
-                    leadingProbability={leadingPrediction?.winProbability}
+                    leadingCandidate={leadingItem?.candidate?.name}
+                    leadingProbability={leadingItem?.prediction?.winProbability}
                     candidateCount={candidates.length}
                   />
                 );
