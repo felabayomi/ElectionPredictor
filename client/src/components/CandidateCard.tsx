@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PartyBadge } from "./PartyBadge";
 import { ProbabilityBar } from "./ProbabilityBar";
 import type { Candidate, Prediction } from "@shared/schema";
-import { MapPin, Briefcase, Users, Award, Target, TrendingUp } from "lucide-react";
+import { MapPin, Briefcase, Users, Award, Target, TrendingUp, BarChart3, DollarSign } from "lucide-react";
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -85,7 +85,7 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
             confidenceInterval={prediction.confidenceInterval}
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3" />
@@ -95,10 +95,24 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <BarChart3 className="h-3 w-3" />
+                <span>Polling</span>
+              </div>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.polling || 0).toFixed(1)}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Briefcase className="h-3 w-3" />
                 <span>Experience</span>
               </div>
               <p className="font-mono text-sm font-semibold">{(prediction.factors.candidateExperience || 0).toFixed(1)}</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <DollarSign className="h-3 w-3" />
+                <span>Fundraising</span>
+              </div>
+              <p className="font-mono text-sm font-semibold">{(prediction.factors.fundraising || 0).toFixed(1)}</p>
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">

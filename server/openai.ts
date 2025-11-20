@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { Party, PredictionFactors } from "@shared/schema";
+import type { Party, PredictionFactors, Candidate } from "@shared/schema";
 
 // This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
 const openai = new OpenAI({
@@ -181,7 +181,14 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
 
     const content = response.choices[0]?.message?.content || "{}";
     console.log("[generateCustomPrediction] AI response:", content);
-    const result = JSON.parse(content);
+    
+    // Strip markdown code blocks if present
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
+    }
+    
+    const result = JSON.parse(cleanedContent);
     
     return {
       predictions: result.predictions || {},
@@ -319,7 +326,14 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
     });
 
     const content = response.choices[0]?.message?.content || "{}";
-    const result = JSON.parse(content);
+    
+    // Strip markdown code blocks if present
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
+    }
+    
+    const result = JSON.parse(cleanedContent);
     
     const suggestions = (result.suggestions || [])
       .map((s: any) => {
@@ -527,7 +541,14 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
       return generateDeterministicPredictions(candidates);
     }
     
-    const result = JSON.parse(content);
+    // Strip markdown code blocks if present (OpenAI sometimes wraps JSON in ```json ... ```)
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```')) {
+      // Remove opening ```json or ``` and closing ```
+      cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
+    }
+    
+    const result = JSON.parse(cleanedContent);
     
     if (!result.predictions || Object.keys(result.predictions).length === 0) {
       console.warn("[reanalyzeRace] AI returned no predictions - using deterministic fallback");
@@ -722,7 +743,13 @@ Probabilities must sum to ~100.`;
     const content = response.choices[0]?.message?.content || "{}";
     console.log("OpenAI response received, parsing...");
     
-    const result = JSON.parse(content);
+    // Strip markdown code blocks if present
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
+    }
+    
+    const result = JSON.parse(cleanedContent);
     console.log("Parsed result:", {
       raceTitle: result.raceTitle,
       candidateCount: result.candidates?.length || 0,
