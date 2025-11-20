@@ -114,16 +114,15 @@ Keep the tone professional, neutral, and data-focused like FiveThirtyEight.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 1000,
-      temperature: 1,
+      max_tokens: 1000,
     });
 
     return response.choices[0]?.message?.content || "Analysis unavailable.";
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return "Analysis temporarily unavailable. The prediction is based on early-cycle statistical modeling of partisan lean, candidate experience, name recognition, endorsements, issue alignment, and momentum.";
+    return "Analysis temporarily unavailable. The prediction is based on comprehensive statistical modeling using 8 key factors.";
   }
 }
 
@@ -140,39 +139,40 @@ Race: ${raceTitle}
 Candidates:
 ${candidates.map((c, i) => `${i + 1}. ${c.name} (${c.party})`).join('\n')}
 
-Generate realistic win probabilities and factor scores (0-100) for each candidate using ONLY public information. Use this early-cycle prediction model with NO polling or fundraising data:
+Generate realistic win probabilities and factor scores (0-100) for each candidate using public information. Use this comprehensive 8-factor prediction model:
 
 {
   "predictions": {
     "candidate_name": {
       "probability": number (0-100),
       "factors": {
-        "partisanLean": number (0-100) - PVI, district demographics, past results (30% weight),
-        "candidateExperience": number (0-100) - Incumbent advantage, offices held (20% weight),
-        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (15% weight),
-        "endorsements": number (0-100) - Party support, official/union backing (15% weight),
-        "issueAlignment": number (0-100) - Match with district ideology/issues (10% weight),
-        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (10% weight)
+        "partisanLean": number (0-100) - PVI, district demographics, past results (25% weight),
+        "polling": number (0-100) - Average polling performance, voter sentiment (20% weight),
+        "candidateExperience": number (0-100) - Incumbent advantage, offices held (15% weight),
+        "fundraising": number (0-100) - Campaign resources, cash raised (15% weight),
+        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (10% weight),
+        "endorsements": number (0-100) - Party support, official/union backing (10% weight),
+        "issueAlignment": number (0-100) - Match with district ideology/issues (5% weight),
+        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (5% weight)
       }
     }
   },
-  "analysis": "3-4 paragraph early-cycle analysis explaining race dynamics and key factors"
+  "analysis": "3-4 paragraph comprehensive analysis explaining race dynamics and key factors"
 }
 
-Use the weighted scoring system: partisanLean (30%), candidateExperience (20%), nameRecognition (15%), endorsements (15%), issueAlignment (10%), momentum (10%). NO polling or fundraising data.
+Use the weighted scoring system: partisanLean (25%), polling (20%), candidateExperience (15%), fundraising (15%), nameRecognition (10%), endorsements (10%), issueAlignment (5%), momentum (5%).
 
 CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. Even slight differences in factors should produce different probabilities (e.g., 23.4%, 22.7%, 19.3%, NOT 20.0%, 20.0%, 20.0%). Probabilities should sum to approximately 100 and be realistic and data-driven.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 2000,
-      temperature: 1,
-      response_format: { type: "json_object" },
+      max_tokens: 2000,
     });
 
     const content = response.choices[0]?.message?.content || "{}";
+    console.log("[generateCustomPrediction] AI response:", content);
     const result = JSON.parse(content);
     
     return {
@@ -193,21 +193,25 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
       // Deterministic factor generation (40-80 range for variety)
       const factors: PredictionFactors = {
         partisanLean: 40 + ((seed * 7) % 40),
+        polling: 40 + ((seed * 29) % 40),
         candidateExperience: 40 + ((seed * 11) % 40),
+        fundraising: 40 + ((seed * 31) % 40),
         nameRecognition: 40 + ((seed * 13) % 40),
         endorsements: 40 + ((seed * 17) % 40),
         issueAlignment: 40 + ((seed * 19) % 40),
         momentum: 40 + ((seed * 23) % 40),
       };
       
-      // Calculate weighted composite score using the 6-factor model
+      // Calculate weighted composite score using the 8-factor model
       const compositeScore = 
-        (factors.partisanLean * 0.30) +
-        (factors.candidateExperience * 0.20) +
-        (factors.nameRecognition * 0.15) +
-        (factors.endorsements * 0.15) +
-        (factors.issueAlignment * 0.10) +
-        (factors.momentum * 0.10);
+        (factors.partisanLean * 0.25) +
+        (factors.polling * 0.20) +
+        (factors.candidateExperience * 0.15) +
+        (factors.fundraising * 0.15) +
+        (factors.nameRecognition * 0.10) +
+        (factors.endorsements * 0.10) +
+        (factors.issueAlignment * 0.05) +
+        (factors.momentum * 0.05);
       
       return { candidate: c, factors, compositeScore };
     });
@@ -301,11 +305,9 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 1500,
-      temperature: 1,
-      response_format: { type: "json_object" },
+      max_tokens: 1500,
     });
 
     const content = response.choices[0]?.message?.content || "{}";
@@ -373,7 +375,7 @@ function hashString(str: string): number {
 // Deterministic fallback for when AI is unavailable
 // Returns stable predictions based on candidate IDs - same candidates = same predictions
 function generateDeterministicPredictions(
-  candidates: Array<{ id: string; name: string; party: Party }>
+  candidates: Candidate[]
 ): Record<string, { probability: number; factors: PredictionFactors }> {
   console.log("[reanalyzeRace] Using deterministic fallback - AI unavailable");
   
@@ -383,24 +385,46 @@ function generateDeterministicPredictions(
     const hash = hashString(candidate.id);
     const seed = hash % 100;
     
+    // Use actual candidate data when available, otherwise use deterministic values
     const factors: PredictionFactors = {
       // Use hash-derived values for stable, deterministic factors (40-70 range)
       partisanLean: 40 + ((seed + 0) % 30),
-      candidateExperience: 40 + ((seed + 13) % 30),
-      nameRecognition: 40 + ((seed + 27) % 30),
-      endorsements: 40 + ((seed + 41) % 30),
-      issueAlignment: 40 + ((seed + 59) % 30),
-      momentum: 40 + ((seed + 73) % 30),
+      // Use actual polling data if available, otherwise deterministic
+      polling: candidate.pollingAverage !== undefined && candidate.pollingAverage !== null 
+        ? Math.min(100, Math.max(0, candidate.pollingAverage)) 
+        : 40 + ((seed + 11) % 30),
+      // Boost experience score for incumbents and based on years
+      candidateExperience: (() => {
+        let base = 40 + ((seed + 23) % 30);
+        if (candidate.isIncumbent) base += 20;
+        if (candidate.yearsExperience !== undefined && candidate.yearsExperience !== null) {
+          base = Math.min(100, base + Math.min(30, candidate.yearsExperience * 2));
+        }
+        return Math.min(100, base);
+      })(),
+      // Use actual fundraising if available, scale to 0-100
+      fundraising: candidate.fundraisingTotal !== undefined && candidate.fundraisingTotal !== null 
+        ? Math.min(100, Math.max(0, Math.min(100, candidate.fundraisingTotal / 10000000 * 100)))
+        : 40 + ((seed + 37) % 30),
+      nameRecognition: 40 + ((seed + 47) % 30),
+      // Use actual endorsement count if available
+      endorsements: candidate.majorEndorsements !== undefined && candidate.majorEndorsements !== null && candidate.majorEndorsements > 0
+        ? Math.min(100, 30 + candidate.majorEndorsements * 10)
+        : 40 + ((seed + 59) % 30),
+      issueAlignment: 40 + ((seed + 71) % 30),
+      momentum: 40 + ((seed + 83) % 30),
     };
     
-    // Calculate weighted composite score using the 6-factor model
+    // Calculate weighted composite score using the 8-factor model
     const compositeScore = 
-      (factors.partisanLean * 0.30) +
-      (factors.candidateExperience * 0.20) +
-      (factors.nameRecognition * 0.15) +
-      (factors.endorsements * 0.15) +
-      (factors.issueAlignment * 0.10) +
-      (factors.momentum * 0.10);
+      (factors.partisanLean * 0.25) +
+      (factors.polling * 0.20) +
+      (factors.candidateExperience * 0.15) +
+      (factors.fundraising * 0.15) +
+      (factors.nameRecognition * 0.10) +
+      (factors.endorsements * 0.10) +
+      (factors.issueAlignment * 0.05) +
+      (factors.momentum * 0.05);
     
     return { candidate, factors, compositeScore };
   });
@@ -430,29 +454,45 @@ function generateDeterministicPredictions(
 
 export async function reanalyzeRace(
   raceTitle: string,
-  candidates: Array<{ id: string; name: string; party: Party }>
+  candidates: Candidate[]
 ): Promise<Record<string, { probability: number; factors: PredictionFactors }>> {
+  // Build detailed candidate descriptions with available data
+  const candidateDescriptions = candidates.map((c, i) => {
+    let desc = `${i + 1}. ${c.name} (${c.party})`;
+    const details: string[] = [];
+    if (c.pollingAverage !== undefined && c.pollingAverage !== null) details.push(`Polling: ${c.pollingAverage}%`);
+    if (c.fundraisingTotal !== undefined && c.fundraisingTotal !== null) details.push(`Fundraising: $${c.fundraisingTotal.toLocaleString()}`);
+    if (c.isIncumbent) details.push('Incumbent');
+    if (c.yearsExperience !== undefined && c.yearsExperience !== null) details.push(`Experience: ${c.yearsExperience} years`);
+    if (c.majorEndorsements !== undefined && c.majorEndorsements !== null && c.majorEndorsements > 0) details.push(`Endorsements: ${c.majorEndorsements}`);
+    if (c.position) details.push(`Position: ${c.position}`);
+    if (details.length > 0) desc += ` - ${details.join(', ')}`;
+    return desc;
+  }).join('\n');
+
   const prompt = `You are a political data scientist. Re-analyze this election with the LATEST current events and political landscape:
 
 Race: ${raceTitle}
 Candidates:
-${candidates.map((c, i) => `${i + 1}. ${c.name} (${c.party})`).join('\n')}
+${candidateDescriptions}
 
-IMPORTANT: Consider the CURRENT political climate, recent news, and latest developments. Generate UPDATED win probabilities and factor scores (0-100) for each candidate using ONLY public information.
+IMPORTANT: Consider the CURRENT political climate, recent news, latest developments, AND the candidate data provided above. Use actual polling and fundraising data when available. Generate UPDATED win probabilities and factor scores (0-100) for each candidate.
 
-Use this early-cycle prediction model with NO polling or fundraising data:
+Use this comprehensive 8-factor prediction model:
 
 {
   "predictions": {
     "candidate_name": {
       "probability": number (0-100),
       "factors": {
-        "partisanLean": number (0-100) - PVI, district demographics, past results (30% weight),
-        "candidateExperience": number (0-100) - Incumbent advantage, offices held (20% weight),
-        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (15% weight),
-        "endorsements": number (0-100) - Party support, official/union backing (15% weight),
-        "issueAlignment": number (0-100) - Match with district ideology/issues (10% weight),
-        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (10% weight)
+        "partisanLean": number (0-100) - PVI, district demographics, past results (25% weight),
+        "polling": number (0-100) - Average polling performance, voter sentiment (20% weight),
+        "candidateExperience": number (0-100) - Incumbent advantage, offices held (15% weight),
+        "fundraising": number (0-100) - Campaign resources, cash raised (15% weight),
+        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (10% weight),
+        "endorsements": number (0-100) - Party support, official/union backing (10% weight),
+        "issueAlignment": number (0-100) - Match with district ideology/issues (5% weight),
+        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (5% weight)
       }
     }
   }
@@ -463,10 +503,9 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
   try {
     console.log(`[reanalyzeRace] Calling OpenAI API for race: ${raceTitle}`);
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 2000,
-      response_format: { type: "json_object" },
+      max_tokens: 2000,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -531,10 +570,9 @@ Return ONLY valid JSON:
     console.log("Detecting question type for:", query.substring(0, 100) + "...");
     
     const detectionResponse = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4.1-mini",
       messages: [{ role: "user", content: detectionPrompt }],
-      max_completion_tokens: 200,
-      response_format: { type: "json_object" },
+      max_tokens: 200,
     });
 
     const detectionContent = detectionResponse.choices[0]?.message?.content || "{}";
@@ -611,10 +649,9 @@ Probabilities must sum to ~100.`;
     console.log("Sending natural language query to OpenAI:", query.substring(0, 100) + "...");
     
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 3000,
-      response_format: { type: "json_object" },
+      max_tokens: 3000,
     });
 
     const content = response.choices[0]?.message?.content || "{}";
@@ -687,7 +724,9 @@ Probabilities must sum to ~100.`;
         probability: Math.max(5, Math.min(95, baseProb + variance)),
         factors: {
           partisanLean: 40 + Math.random() * 40,
+          polling: 40 + Math.random() * 40,
           candidateExperience: 40 + Math.random() * 40,
+          fundraising: 40 + Math.random() * 40,
           nameRecognition: 40 + Math.random() * 40,
           endorsements: 40 + Math.random() * 40,
           issueAlignment: 40 + Math.random() * 40,

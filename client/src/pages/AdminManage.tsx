@@ -653,6 +653,113 @@ export default function AdminManage() {
                     )}
                   />
                   
+                  <FormField
+                    control={form.control}
+                    name="pollingAverage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Polling Average % (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0-100" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                            value={field.value ?? ''}
+                            data-testid="input-candidate-polling" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="fundraisingTotal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fundraising Total ($M, Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Amount in millions" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                            value={field.value ?? ''}
+                            data-testid="input-candidate-fundraising" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="isIncumbent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Is Incumbent? (Optional)</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(value === "1" ? 1 : 0)}
+                          value={field.value === 1 ? "1" : field.value === 0 ? "0" : undefined}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-candidate-incumbent">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="0">No</SelectItem>
+                            <SelectItem value="1">Yes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="yearsExperience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Years of Political Experience (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Years" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            value={field.value ?? ''}
+                            data-testid="input-candidate-experience" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="majorEndorsements"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Major Endorsements (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="e.g., Senator X, Union Y" 
+                            {...field}
+                            value={field.value ?? ''}
+                            data-testid="input-candidate-endorsements" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
                   <Button 
                     type="submit" 
                     className="w-full"
@@ -734,6 +841,113 @@ export default function AdminManage() {
                     <FormLabel>Photo URL (Optional)</FormLabel>
                     <FormControl>
                       <Input {...field} data-testid="input-edit-candidate-photo" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="pollingAverage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Polling Average % (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="0-100" 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                        value={field.value ?? ''}
+                        data-testid="input-edit-candidate-polling" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="fundraisingTotal"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fundraising Total ($M, Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="Amount in millions" 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                        value={field.value ?? ''}
+                        data-testid="input-edit-candidate-fundraising" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="isIncumbent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Is Incumbent? (Optional)</FormLabel>
+                    <Select 
+                      onValueChange={(value) => field.onChange(value === "1" ? 1 : 0)}
+                      value={field.value === 1 ? "1" : field.value === 0 ? "0" : undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-candidate-incumbent">
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="0">No</SelectItem>
+                        <SelectItem value="1">Yes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="yearsExperience"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Years of Political Experience (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="Years" 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                        value={field.value ?? ''}
+                        data-testid="input-edit-candidate-experience" 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="majorEndorsements"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Major Endorsements (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="e.g., Senator X, Union Y" 
+                        {...field}
+                        value={field.value ?? ''}
+                        data-testid="input-edit-candidate-endorsements" 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

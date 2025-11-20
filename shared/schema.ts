@@ -28,6 +28,11 @@ export const candidates = pgTable("candidates", {
   position: text("position"),
   district: text("district"),
   state: text("state"),
+  pollingAverage: doublePrecision("polling_average"),
+  fundraisingTotal: doublePrecision("fundraising_total"),
+  isIncumbent: integer("is_incumbent").default(0),
+  yearsExperience: integer("years_experience"),
+  majorEndorsements: text("major_endorsements"),
 });
 
 export const predictions = pgTable("predictions", {
@@ -74,7 +79,9 @@ export type RaceType = "Presidential" | "Senate" | "House" | "Governor" | "Local
 
 export interface PredictionFactors {
   partisanLean: number;
+  polling: number;
   candidateExperience: number;
+  fundraising: number;
   nameRecognition: number;
   endorsements: number;
   issueAlignment: number;
@@ -89,6 +96,11 @@ export interface Candidate {
   position?: string;
   district?: string;
   state?: string;
+  pollingAverage?: number;
+  fundraisingTotal?: number;
+  isIncumbent?: number;
+  yearsExperience?: number;
+  majorEndorsements?: string;
 }
 
 export interface Race {
@@ -153,6 +165,11 @@ export const insertCandidateSchema = z.object({
   position: z.string().optional(),
   district: z.string().optional(),
   state: z.string().optional(),
+  pollingAverage: z.number().min(0).max(100).optional(),
+  fundraisingTotal: z.number().min(0).optional(),
+  isIncumbent: z.number().min(0).max(1).optional(),
+  yearsExperience: z.number().int().min(0).optional(),
+  majorEndorsements: z.string().optional(),
 });
 
 export const insertRaceSchema = z.object({

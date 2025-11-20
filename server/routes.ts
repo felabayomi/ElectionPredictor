@@ -119,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             },
             factors: predictionData.factors,
             lastUpdated: new Date().toISOString(),
-            methodology: "AI-powered early-cycle prediction model using 6 key factors: Partisan Lean/Demographics (30%), Candidate Experience (20%), Name Recognition (15%), Endorsements (15%), Issue Alignment (10%), and Momentum (10%). No polling or fundraising data required.",
+            methodology: "AI-powered comprehensive prediction model using 8 key factors: Partisan Lean/Demographics (25%), Polling (20%), Candidate Experience (15%), Fundraising (15%), Name Recognition (10%), Endorsements (10%), Issue Alignment (5%), and Momentum (5%).",
             aiAnalysis: "Updated based on current political landscape and recent developments.",
           };
 
@@ -253,7 +253,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorKeys: (keyof PredictionFactors)[] = [
         "partisanLean",
+        "polling",
         "candidateExperience",
+        "fundraising",
         "nameRecognition",
         "endorsements",
         "issueAlignment",
@@ -262,7 +264,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
         partisanLean: "Partisan Lean / Demographics",
+        polling: "Polling Average",
         candidateExperience: "Candidate Experience / Incumbency",
+        fundraising: "Fundraising / Campaign Resources",
         nameRecognition: "Name Recognition / Public Visibility",
         endorsements: "Endorsements / Party Support",
         issueAlignment: "Issue Alignment / Ideology Fit",
@@ -325,7 +329,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorKeys: (keyof PredictionFactors)[] = [
         "partisanLean",
+        "polling",
         "candidateExperience",
+        "fundraising",
         "nameRecognition",
         "endorsements",
         "issueAlignment",
@@ -334,7 +340,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const factorLabels: Record<keyof PredictionFactors, string> = {
         partisanLean: "Partisan Lean / Demographics",
+        polling: "Polling Average",
         candidateExperience: "Candidate Experience / Incumbency",
+        fundraising: "Fundraising / Campaign Resources",
         nameRecognition: "Name Recognition / Public Visibility",
         endorsements: "Endorsements / Party Support",
         issueAlignment: "Issue Alignment / Ideology Fit",
@@ -433,7 +441,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             confidenceInterval: { low: 40, high: 60 },
             factors: {
               partisanLean: 50,
+              polling: 50,
               candidateExperience: 50,
+              fundraising: 50,
               nameRecognition: 50,
               endorsements: 50,
               issueAlignment: 50,
@@ -529,7 +539,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             confidenceInterval: { low: 40, high: 60 },
             factors: {
               partisanLean: 50,
+              polling: 50,
               candidateExperience: 50,
+              fundraising: 50,
               nameRecognition: 50,
               endorsements: 50,
               issueAlignment: 50,

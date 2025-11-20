@@ -83,6 +83,11 @@ export class DbStorage implements IStorage {
       position: r.position || undefined,
       district: r.district || undefined,
       state: r.state || undefined,
+      pollingAverage: r.pollingAverage || undefined,
+      fundraisingTotal: r.fundraisingTotal || undefined,
+      isIncumbent: r.isIncumbent || undefined,
+      yearsExperience: r.yearsExperience || undefined,
+      majorEndorsements: r.majorEndorsements || undefined,
     }));
   }
 
@@ -100,6 +105,11 @@ export class DbStorage implements IStorage {
       position: r.position || undefined,
       district: r.district || undefined,
       state: r.state || undefined,
+      pollingAverage: r.pollingAverage || undefined,
+      fundraisingTotal: r.fundraisingTotal || undefined,
+      isIncumbent: r.isIncumbent || undefined,
+      yearsExperience: r.yearsExperience || undefined,
+      majorEndorsements: r.majorEndorsements || undefined,
     };
   }
 
@@ -115,6 +125,11 @@ export class DbStorage implements IStorage {
         position: candidates.position,
         district: candidates.district,
         state: candidates.state,
+        pollingAverage: candidates.pollingAverage,
+        fundraisingTotal: candidates.fundraisingTotal,
+        isIncumbent: candidates.isIncumbent,
+        yearsExperience: candidates.yearsExperience,
+        majorEndorsements: candidates.majorEndorsements,
       })
       .from(raceCandidates)
       .innerJoin(candidates, eq(raceCandidates.candidateId, candidates.id))
@@ -128,6 +143,11 @@ export class DbStorage implements IStorage {
       position: r.position || undefined,
       district: r.district || undefined,
       state: r.state || undefined,
+      pollingAverage: r.pollingAverage || undefined,
+      fundraisingTotal: r.fundraisingTotal || undefined,
+      isIncumbent: r.isIncumbent || undefined,
+      yearsExperience: r.yearsExperience || undefined,
+      majorEndorsements: r.majorEndorsements || undefined,
     }));
   }
 
@@ -143,6 +163,11 @@ export class DbStorage implements IStorage {
         position: candidates.position,
         district: candidates.district,
         state: candidates.state,
+        pollingAverage: candidates.pollingAverage,
+        fundraisingTotal: candidates.fundraisingTotal,
+        isIncumbent: candidates.isIncumbent,
+        yearsExperience: candidates.yearsExperience,
+        majorEndorsements: candidates.majorEndorsements,
       })
       .from(raceCandidates)
       .innerJoin(candidates, eq(raceCandidates.candidateId, candidates.id))
@@ -157,6 +182,11 @@ export class DbStorage implements IStorage {
       position: r.position || undefined,
       district: r.district || undefined,
       state: r.state || undefined,
+      pollingAverage: r.pollingAverage || undefined,
+      fundraisingTotal: r.fundraisingTotal || undefined,
+      isIncumbent: r.isIncumbent || undefined,
+      yearsExperience: r.yearsExperience || undefined,
+      majorEndorsements: r.majorEndorsements || undefined,
     }));
   }
 
@@ -178,6 +208,11 @@ export class DbStorage implements IStorage {
       position: candidate.position || undefined,
       district: candidate.district || undefined,
       state: candidate.state || undefined,
+      pollingAverage: candidate.pollingAverage || undefined,
+      fundraisingTotal: candidate.fundraisingTotal || undefined,
+      isIncumbent: candidate.isIncumbent || undefined,
+      yearsExperience: candidate.yearsExperience || undefined,
+      majorEndorsements: candidate.majorEndorsements || undefined,
     };
   }
 
@@ -198,6 +233,11 @@ export class DbStorage implements IStorage {
       position: r.position || undefined,
       district: r.district || undefined,
       state: r.state || undefined,
+      pollingAverage: r.pollingAverage || undefined,
+      fundraisingTotal: r.fundraisingTotal || undefined,
+      isIncumbent: r.isIncumbent || undefined,
+      yearsExperience: r.yearsExperience || undefined,
+      majorEndorsements: r.majorEndorsements || undefined,
     };
   }
 
