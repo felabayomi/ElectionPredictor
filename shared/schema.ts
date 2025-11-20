@@ -32,7 +32,7 @@ export const candidates = pgTable("candidates", {
   fundraisingTotal: doublePrecision("fundraising_total"),
   isIncumbent: integer("is_incumbent").default(0),
   yearsExperience: integer("years_experience"),
-  majorEndorsements: text("major_endorsements"),
+  majorEndorsements: integer("major_endorsements"),
 });
 
 export const predictions = pgTable("predictions", {
@@ -100,7 +100,7 @@ export interface Candidate {
   fundraisingTotal?: number;
   isIncumbent?: number;
   yearsExperience?: number;
-  majorEndorsements?: string;
+  majorEndorsements?: number;
 }
 
 export interface Race {

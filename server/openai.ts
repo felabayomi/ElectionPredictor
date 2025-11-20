@@ -86,6 +86,14 @@ function normalizeUniqueProbabilities(weightedScores: number[]): number[] {
     }
   }
   
+  // Step 8: Rebalance to ensure exactly 100% after gap enforcement
+  let finalTotal = prob.reduce((sum, p) => sum + p, 0);
+  if (finalTotal !== TARGET_TOTAL) {
+    const deficit = TARGET_TOTAL - finalTotal;
+    // Distribute deficit/excess to the first candidate (has most headroom)
+    prob[0] += deficit;
+  }
+  
   // Convert tenths back to percentages
   return prob.map(p => p / SCALE);
 }
@@ -526,7 +534,64 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
       return generateDeterministicPredictions(candidates);
     }
     
-    return result.predictions;
+    // Validate and normalize AI-generated probabilities
+    const predictionEntries = Object.entries(result.predictions).map(([name, data]: [string, any]) => {
+      const prob = typeof data.probability === 'number' ? data.probability : parseFloat(data.probability);
+      return {
+        name,
+        probability: isNaN(prob) || !isFinite(prob) ? 0 : prob,
+        factors: data.factors,
+      };
+    });
+    
+    // Check if probabilities are valid for normalization
+    const totalProb = predictionEntries.reduce((sum, entry) => sum + entry.probability, 0);
+    const hasInvalidProbs = predictionEntries.some(entry => entry.probability < 0 || !isFinite(entry.probability));
+    
+    if (totalProb <= 0 || hasInvalidProbs) {
+      console.warn("[reanalyzeRace] AI returned invalid probabilities (sum=" + totalProb + ") - using deterministic fallback");
+      return generateDeterministicPredictions(candidates);
+    }
+    
+    // Sort by probability descending (required by normalizeUniqueProbabilities)
+    predictionEntries.sort((a, b) => b.probability - a.probability);
+    
+    // Extract sorted probabilities for normalization
+    const sortedProbabilities = predictionEntries.map(entry => entry.probability);
+    
+    // Normalize probabilities to ensure they sum to exactly 100% and are unique
+    let normalizedProbs: number[];
+    try {
+      normalizedProbs = normalizeUniqueProbabilities(sortedProbabilities);
+      
+      // Validate normalized output
+      const sum = normalizedProbs.reduce((a, b) => a + b, 0);
+      const allValid = normalizedProbs.every((p, i) => {
+        if (!isFinite(p) || p < 0.1 || p > 100) return false;
+        if (i > 0 && p >= normalizedProbs[i - 1]) return false; // Must be descending
+        if (i > 0 && normalizedProbs[i - 1] - p < 0.3) return false; // Must have 0.3% gap
+        return true;
+      });
+      
+      if (!allValid || Math.abs(sum - 100) > 0.01) {
+        console.warn(`[reanalyzeRace] Normalization produced invalid probabilities (sum=${sum.toFixed(2)}%) - using deterministic fallback`);
+        return generateDeterministicPredictions(candidates);
+      }
+    } catch (error) {
+      console.warn("[reanalyzeRace] Normalization failed:", error, "- using deterministic fallback");
+      return generateDeterministicPredictions(candidates);
+    }
+    
+    // Rebuild predictions with normalized probabilities mapped to correct candidates
+    const normalizedPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+    predictionEntries.forEach((entry, index) => {
+      normalizedPredictions[entry.name] = {
+        probability: normalizedProbs[index],
+        factors: entry.factors,
+      };
+    });
+    
+    return normalizedPredictions;
   } catch (error) {
     console.error("OpenAI API error during reanalysis:", error);
     if (error instanceof Error) {

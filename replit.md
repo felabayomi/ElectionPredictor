@@ -18,12 +18,22 @@ Candidate management is handled entirely within the RaceCard component using rea
 The backend is built with Express.js and TypeScript, using ESM. It employs a RESTful API design. Data is persisted in a PostgreSQL database (Neon serverless for production) using Drizzle ORM for type-safe queries. Schema definitions are shared, and all primary keys are UUID-based VARCHARs. Key API endpoints include fetching races and candidates, generating AI-powered comparisons and custom predictions, processing natural language queries, and managing featured matchups and admin tasks.
 
 ### Prediction Model
-The application utilizes an early-cycle weighted factor system that does not require polling or fundraising data. It considers: Partisan Lean/Demographics (30%), Candidate Experience/Incumbency (20%), Name Recognition/Public Visibility (15%), Endorsements/Party Support (15%), Issue Alignment/Ideology Fit (10%), and Momentum/Public Engagement (10%). This model assigns a composite win probability score with confidence intervals based on publicly available data.
+The application uses a comprehensive **8-factor weighted prediction model**:
+- **Partisan Lean/Demographics** (25%): District PVI, historical voting patterns
+- **Polling** (20%): Average polling performance, voter sentiment trends
+- **Candidate Experience** (15%): Incumbent advantage, years in office, prior positions held
+- **Fundraising** (15%): Campaign resources, total funds raised
+- **Name Recognition** (10%): Media coverage, Google Trends, social media presence
+- **Endorsements** (10%): Party support, official backing, union endorsements
+- **Issue Alignment** (5%): Match with district ideology and key issues
+- **Momentum** (5%): Volunteer activity, event attendance, grassroots engagement
+
+The model leverages **OpenAI GPT-4.1-mini** for intelligent analysis when available, with a deterministic fallback that incorporates actual candidate data (polling, fundraising, incumbent status, experience, endorsements) when AI is unavailable. All predictions include unique win probabilities and confidence intervals.
 
 ## External Dependencies
 
 ### AI Integration
-- **OpenAI GPT-5 API**: Utilized via Replit AI Integrations for natural language comparative analysis and political commentary. Includes a fallback to statistical-only predictions.
+- **OpenAI GPT-4.1-mini API**: Utilized via Replit AI Integrations for natural language comparative analysis, political commentary, and data-driven predictions. Includes intelligent fallback to deterministic predictions using actual candidate metrics when AI unavailable.
 
 ### Database (Production)
 - **PostgreSQL via Neon serverless database**: For persistent data storage.
