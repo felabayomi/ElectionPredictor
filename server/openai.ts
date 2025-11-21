@@ -612,6 +612,42 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
       };
     });
     
+    // CRITICAL: Ensure ALL candidates have predictions
+    // If AI missed any candidates (especially newly added ones), use deterministic fallback for them
+    const candidatesWithPredictions = new Set(Object.keys(normalizedPredictions));
+    const missingCandidates = candidates.filter(c => !candidatesWithPredictions.has(c.name));
+    
+    if (missingCandidates.length > 0) {
+      console.warn(`[reanalyzeRace] AI missed ${missingCandidates.length} candidates: ${missingCandidates.map(c => c.name).join(', ')} - generating deterministic predictions for them`);
+      const deterministicFallback = generateDeterministicPredictions(missingCandidates);
+      
+      // Merge AI predictions with deterministic predictions for missing candidates
+      Object.assign(normalizedPredictions, deterministicFallback);
+      
+      // Re-normalize all probabilities to ensure they still sum to exactly 100%
+      const allPredictions = candidates.map(c => ({
+        name: c.name,
+        probability: normalizedPredictions[c.name]?.probability || 0,
+        factors: normalizedPredictions[c.name]?.factors || { partisanLean: 0, polling: 0, candidateExperience: 0, fundraising: 0, nameRecognition: 0, endorsements: 0, issueAlignment: 0, momentum: 0 }
+      }));
+      
+      // Sort by probability for renormalization
+      allPredictions.sort((a, b) => b.probability - a.probability);
+      const allProbs = allPredictions.map(p => p.probability);
+      const finalNormalizedProbs = normalizeUniqueProbabilities(allProbs);
+      
+      // Rebuild with all candidates and renormalized probabilities
+      const finalPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+      allPredictions.forEach((entry, index) => {
+        finalPredictions[entry.name] = {
+          probability: finalNormalizedProbs[index],
+          factors: entry.factors,
+        };
+      });
+      
+      return finalPredictions;
+    }
+    
     return normalizedPredictions;
   } catch (error) {
     console.error("OpenAI API error during reanalysis:", error);
