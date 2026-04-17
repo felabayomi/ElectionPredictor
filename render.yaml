@@ -9,7 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
+      - key: ELECTION_PREDICTOR_NEON_DATABASE_URL
         sync: false
       - key: ELECTION_PREDICTOR_OPENAI_API_KEY
         sync: false
