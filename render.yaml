@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: election-predictor
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: ELECTION_PREDICTOR_OPENAI_API_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
