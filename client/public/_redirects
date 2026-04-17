@@ -1,0 +1,2 @@
+/api/*  https://felix-platform-backend.onrender.com/api/election-predictor/:splat  200
+/*      /index.html                                                                      200
