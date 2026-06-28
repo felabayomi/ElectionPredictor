@@ -8,6 +8,7 @@ import { MethodologyModal } from "@/components/MethodologyModal";
 import { ShareButton } from "@/components/ShareButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
 import { BarChart3, Info, ExternalLink, Sparkles, Eye } from "lucide-react";
@@ -20,6 +21,7 @@ interface RaceWithPredictions {
 
 export default function Dashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
+  const [searchTerm, setSearchTerm] = useState("");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
 
   const { data: racesData, isLoading } = useQuery<RaceWithPredictions[]>({
@@ -30,12 +32,22 @@ export default function Dashboard() {
     queryKey: ["/api/featured-matchups"],
   });
 
-  const filteredRaces = racesData?.filter(
-    (item) =>
-      (selectedRaceType === "All" || item.race.type === selectedRaceType) &&
-      item.candidates.length > 0 &&
-      item.predictions.length > 0
-  );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredRaces = racesData?.filter((item) => {
+    const inSelectedType = selectedRaceType === "All" || item.race.type === selectedRaceType;
+    const hasAnalysis = item.candidates.length > 0 && item.predictions.length > 0;
+
+    if (!normalizedSearch) {
+      return inSelectedType && hasAnalysis;
+    }
+
+    const raceText = `${item.race.title} ${item.race.type}`.toLowerCase();
+    const candidateText = item.candidates.map((c) => c.name.toLowerCase()).join(" ");
+    const matchesSearch = raceText.includes(normalizedSearch) || candidateText.includes(normalizedSearch);
+
+    return inSelectedType && hasAnalysis && matchesSearch;
+  });
 
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
@@ -116,6 +128,14 @@ export default function Dashboard() {
               Local
             </TabsTrigger>
           </TabsList>
+          <div className="mt-4">
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by race title, type, or candidate name"
+              data-testid="input-search-races"
+            />
+          </div>
         </Tabs>
 
         <div className="mb-8">

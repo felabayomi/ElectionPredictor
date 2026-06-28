@@ -36,6 +36,7 @@ function getInitials(name: string): string {
 
 export default function AdminDashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
+  const [searchTerm, setSearchTerm] = useState("");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
   const [reanalyzingRaceId, setReanalyzingRaceId] = useState<string | null>(null);
   const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
@@ -214,9 +215,16 @@ export default function AdminDashboard() {
     },
   });
 
-  const filteredRaces = racesData?.filter(
-    (item) => selectedRaceType === "All" || item.race.type === selectedRaceType
-  );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredRaces = racesData?.filter((item) => {
+    const inSelectedType = selectedRaceType === "All" || item.race.type === selectedRaceType;
+    if (!normalizedSearch) return inSelectedType;
+
+    const raceText = `${item.race.title} ${item.race.type}`.toLowerCase();
+    const candidateText = item.candidates.map((c) => c.name.toLowerCase()).join(" ");
+    return inSelectedType && (raceText.includes(normalizedSearch) || candidateText.includes(normalizedSearch));
+  });
 
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
@@ -304,6 +312,14 @@ export default function AdminDashboard() {
               Local
             </TabsTrigger>
           </TabsList>
+          <div className="mt-4">
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by race title, type, or candidate name"
+              data-testid="input-search-races-admin"
+            />
+          </div>
         </Tabs>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
