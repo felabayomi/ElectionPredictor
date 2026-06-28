@@ -1,9 +1,652 @@
 import OpenAI from "openai";
 import type { Party, PredictionFactors, Candidate } from "@shared/schema";
+import { z } from "zod";
 
 const openai = new OpenAI({
   apiKey: process.env.ELECTION_PREDICTOR_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
 });
+
+export interface RaceContextSource {
+  sourceName: string;
+  sourceUrl: string;
+  publicationDate: string;
+  sourceType: "news" | "polling" | "fundraising" | "endorsements" | "context";
+  snippet: string;
+}
+
+export interface CurrentRaceContext {
+  retrievedAt: string;
+  raceContextSummary: string;
+  pollingNotes: string[];
+  fundraisingNotes: string[];
+  endorsementNotes: string[];
+  incumbencyAndExperienceNotes: string[];
+  geographyNotes: string[];
+  sources: RaceContextSource[];
+}
+
+export interface ReanalyzeRaceResult {
+  predictions: Record<string, { probability: number; factors: PredictionFactors }>;
+  sourceContext: CurrentRaceContext;
+  analysis: string;
+  scorecards: ReanalysisScorecard[];
+}
+
+type PredictionFactorKey = keyof PredictionFactors;
+
+const FACTOR_WEIGHTS: Record<PredictionFactorKey, number> = {
+  partisanLean: 0.25,
+  polling: 0.20,
+  candidateExperience: 0.15,
+  fundraising: 0.15,
+  nameRecognition: 0.10,
+  endorsements: 0.10,
+  issueAlignment: 0.05,
+  momentum: 0.05,
+};
+
+const FACTOR_KEYS = Object.keys(FACTOR_WEIGHTS) as PredictionFactorKey[];
+
+const partySchema = z.enum(["Democratic", "Republican", "Independent"]);
+
+const predictionFactorsSchema = z.object({
+  partisanLean: z.number().finite().min(0).max(100),
+  polling: z.number().finite().min(0).max(100),
+  candidateExperience: z.number().finite().min(0).max(100),
+  fundraising: z.number().finite().min(0).max(100),
+  nameRecognition: z.number().finite().min(0).max(100),
+  endorsements: z.number().finite().min(0).max(100),
+  issueAlignment: z.number().finite().min(0).max(100),
+  momentum: z.number().finite().min(0).max(100),
+});
+
+const candidatePredictionSchema = z.object({
+  probability: z.number().finite().min(0).max(100),
+  factors: predictionFactorsSchema,
+});
+
+const customPredictionResponseSchema = z.object({
+  predictions: z.record(z.unknown()).default({}),
+  analysis: z.string().optional(),
+});
+
+const extractedCandidateSchema = z.object({
+  name: z.string().min(1),
+  party: partySchema,
+});
+
+const naturalLanguageResponseSchema = z.object({
+  raceTitle: z.string().min(1),
+  candidates: z.array(extractedCandidateSchema).min(1),
+  predictions: z.record(z.unknown()).default({}),
+  analysis: z.string().optional(),
+});
+
+interface CandidateFactorAssessment {
+  candidateName: string;
+  factors: PredictionFactors;
+  factorRationales: Partial<Record<PredictionFactorKey, string>>;
+  overallRationale?: string;
+}
+
+export interface ReanalysisScorecard {
+  candidateName: string;
+  factors: PredictionFactors;
+  factorRationales: Partial<Record<PredictionFactorKey, string>>;
+  overallRationale?: string;
+  compositeScore: number;
+  normalizedProbability: number;
+}
+
+function buildFallbackPredictionsFromScenarioCandidates(
+  candidates: Array<{ name: string; party: Party }>,
+): Record<string, { probability: number; factors: PredictionFactors }> {
+  const fallbackPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+
+  const candidatesWithScores = candidates.map((candidate, index) => {
+    const nameHash = candidate.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const seed = (nameHash + index * 17) % 100;
+
+    const factors: PredictionFactors = {
+      partisanLean: 40 + ((seed * 7) % 40),
+      polling: 40 + ((seed * 29) % 40),
+      candidateExperience: 40 + ((seed * 11) % 40),
+      fundraising: 40 + ((seed * 31) % 40),
+      nameRecognition: 40 + ((seed * 13) % 40),
+      endorsements: 40 + ((seed * 17) % 40),
+      issueAlignment: 40 + ((seed * 19) % 40),
+      momentum: 40 + ((seed * 23) % 40),
+    };
+
+    return {
+      candidate,
+      factors,
+      compositeScore: computeCompositeScore(factors),
+    };
+  });
+
+  candidatesWithScores.sort((a, b) => {
+    const scoreDiff = b.compositeScore - a.compositeScore;
+    if (scoreDiff !== 0) return scoreDiff;
+    return a.candidate.name.localeCompare(b.candidate.name);
+  });
+
+  const probs = normalizeUniqueProbabilities(candidatesWithScores.map((item) => item.compositeScore));
+  candidatesWithScores.forEach((item, index) => {
+    fallbackPredictions[item.candidate.name] = {
+      probability: probs[index],
+      factors: item.factors,
+    };
+  });
+
+  return fallbackPredictions;
+}
+
+function validatePredictionMapForCandidates(
+  rawPredictions: unknown,
+  expectedCandidates: Array<{ name: string }>,
+): Record<string, { probability: number; factors: PredictionFactors }> {
+  if (!rawPredictions || typeof rawPredictions !== "object" || Array.isArray(rawPredictions)) {
+    throw new Error("Predictions payload is not an object");
+  }
+
+  const expectedNameMap = new Map(
+    expectedCandidates.map((candidate) => [candidate.name.trim().toLowerCase(), candidate.name]),
+  );
+
+  const parsedPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+  const rawEntries = Object.entries(rawPredictions as Record<string, unknown>);
+
+  for (const [rawName, rawValue] of rawEntries) {
+    const normalizedName = rawName.trim().toLowerCase();
+    const canonicalName = expectedNameMap.get(normalizedName);
+    if (!canonicalName) {
+      throw new Error(`Unexpected candidate name in predictions: ${rawName}`);
+    }
+
+    const parsed = candidatePredictionSchema.safeParse(rawValue);
+    if (!parsed.success) {
+      throw new Error(`Invalid prediction payload for ${canonicalName}: ${parsed.error.issues.map((issue) => issue.path.join(".") || issue.message).join(", ")}`);
+    }
+
+    parsedPredictions[canonicalName] = parsed.data;
+  }
+
+  const missingCandidates = expectedCandidates
+    .map((candidate) => candidate.name)
+    .filter((candidateName) => !parsedPredictions[candidateName]);
+
+  if (missingCandidates.length > 0) {
+    throw new Error(`Missing predictions for candidates: ${missingCandidates.join(", ")}`);
+  }
+
+  return parsedPredictions;
+}
+
+function cleanJsonContent(content: string): string {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("```")) return trimmed;
+  return trimmed
+    .replace(/^```(?:json)?\s*\n/, "")
+    .replace(/\n```\s*$/, "")
+    .trim();
+}
+
+function extractResponseText(response: unknown): string {
+  if (!response || typeof response !== "object") return "";
+
+  const obj = response as Record<string, unknown>;
+  const outputText = obj.output_text;
+  if (typeof outputText === "string") return outputText;
+
+  const output = obj.output;
+  if (!Array.isArray(output)) return "";
+
+  const textParts: string[] = [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const content = (item as Record<string, unknown>).content;
+    if (!Array.isArray(content)) continue;
+
+    for (const block of content) {
+      if (!block || typeof block !== "object") continue;
+      const text = (block as Record<string, unknown>).text;
+      if (typeof text === "string" && text.trim()) {
+        textParts.push(text);
+      }
+    }
+  }
+
+  return textParts.join("\n");
+}
+
+function clampFactorScore(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 50;
+  return Math.min(100, Math.max(0, numeric));
+}
+
+function coerceFactors(raw: unknown): PredictionFactors {
+  const input = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
+  return {
+    partisanLean: clampFactorScore(input.partisanLean),
+    polling: clampFactorScore(input.polling),
+    candidateExperience: clampFactorScore(input.candidateExperience),
+    fundraising: clampFactorScore(input.fundraising),
+    nameRecognition: clampFactorScore(input.nameRecognition),
+    endorsements: clampFactorScore(input.endorsements),
+    issueAlignment: clampFactorScore(input.issueAlignment),
+    momentum: clampFactorScore(input.momentum),
+  };
+}
+
+function computeCompositeScore(factors: PredictionFactors): number {
+  return FACTOR_KEYS.reduce((sum, key) => sum + (factors[key] * FACTOR_WEIGHTS[key]), 0);
+}
+
+function buildDeterministicAssessment(candidate: Candidate, index: number): CandidateFactorAssessment {
+  const hash = hashString(candidate.id);
+  const seed = hash % 100;
+
+  const factors: PredictionFactors = {
+    partisanLean: candidate.districtPartisanLean !== undefined && candidate.districtPartisanLean !== null
+      ? Math.min(100, Math.max(0, 50 + candidate.districtPartisanLean))
+      : 40 + ((seed + 0) % 30),
+    polling: Array.isArray(candidate.recentPolls) && candidate.recentPolls.length > 0
+      ? Math.min(100, Math.max(0, candidate.recentPolls.reduce((sum, poll) => sum + poll, 0) / candidate.recentPolls.length))
+      : candidate.pollingAverage !== undefined && candidate.pollingAverage !== null
+        ? Math.min(100, Math.max(0, candidate.pollingAverage))
+        : 40 + ((seed + 11) % 30),
+    candidateExperience: (() => {
+      let base = 40 + ((seed + 23) % 30);
+      if (candidate.isIncumbent) base += 20;
+      if (candidate.yearsExperience !== undefined && candidate.yearsExperience !== null) {
+        base = Math.min(100, base + Math.min(30, candidate.yearsExperience * 2));
+      }
+      return Math.min(100, base);
+    })(),
+    fundraising: candidate.cashOnHand !== undefined && candidate.cashOnHand !== null
+      ? Math.min(100, Math.max(0, Math.min(100, candidate.cashOnHand / 10000000 * 100)))
+      : candidate.fundraisingTotal !== undefined && candidate.fundraisingTotal !== null
+        ? Math.min(100, Math.max(0, Math.min(100, candidate.fundraisingTotal / 10000000 * 100)))
+        : 40 + ((seed + 37) % 30),
+    nameRecognition: 40 + ((seed + 47) % 30),
+    endorsements: Array.isArray(candidate.endorsementsList) && candidate.endorsementsList.length > 0
+      ? Math.min(100, 30 + candidate.endorsementsList.length * 10)
+      : candidate.majorEndorsements !== undefined && candidate.majorEndorsements !== null && candidate.majorEndorsements > 0
+        ? Math.min(100, 30 + candidate.majorEndorsements * 10)
+        : 40 + ((seed + 59) % 30),
+    issueAlignment: 40 + ((seed + 71) % 30),
+    momentum: 40 + ((seed + 83) % 30),
+  };
+
+  return {
+    candidateName: candidate.name,
+    factors,
+    factorRationales: {
+      polling: Array.isArray(candidate.recentPolls) && candidate.recentPolls.length > 0
+        ? `Used ${candidate.recentPolls.length} recent poll entries from stored candidate data.`
+        : candidate.pollingAverage != null
+          ? `Used stored polling average of ${candidate.pollingAverage}%.`
+          : "Polling score derived from deterministic fallback due to missing current polling evidence.",
+      fundraising: candidate.cashOnHand != null
+        ? `Used stored cash-on-hand estimate of $${candidate.cashOnHand.toLocaleString()}.`
+        : candidate.fundraisingTotal != null
+          ? `Used stored fundraising total of $${candidate.fundraisingTotal.toLocaleString()}.`
+          : "Fundraising score derived from deterministic fallback due to missing current finance evidence.",
+      candidateExperience: candidate.isIncumbent
+        ? "Incumbency and stored experience boosted the experience score."
+        : "Experience score derived from stored office history or deterministic fallback.",
+    },
+    overallRationale: `Fallback factor scoring generated for ${candidate.name} using stored candidate attributes and deterministic priors (${index + 1}).`,
+  };
+}
+
+function buildNormalizedPredictionsFromAssessments(
+  candidates: Candidate[],
+  assessments: CandidateFactorAssessment[],
+): { predictions: Record<string, { probability: number; factors: PredictionFactors }>; scorecards: ReanalysisScorecard[] } {
+  const assessmentMap = new Map(assessments.map((assessment) => [assessment.candidateName, assessment]));
+  const completedAssessments = candidates.map((candidate, index) => assessmentMap.get(candidate.name) || buildDeterministicAssessment(candidate, index));
+
+  completedAssessments.sort((a, b) => {
+    const scoreDiff = computeCompositeScore(b.factors) - computeCompositeScore(a.factors);
+    if (scoreDiff !== 0) return scoreDiff;
+    return a.candidateName.localeCompare(b.candidateName);
+  });
+
+  const normalizedProbabilities = normalizeUniqueProbabilities(
+    completedAssessments.map((assessment) => computeCompositeScore(assessment.factors)),
+  );
+
+  const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+  const scorecards: ReanalysisScorecard[] = completedAssessments.map((assessment, index) => {
+    const normalizedProbability = normalizedProbabilities[index];
+    predictions[assessment.candidateName] = {
+      probability: normalizedProbability,
+      factors: assessment.factors,
+    };
+
+    return {
+      candidateName: assessment.candidateName,
+      factors: assessment.factors,
+      factorRationales: assessment.factorRationales,
+      overallRationale: assessment.overallRationale,
+      compositeScore: Number(computeCompositeScore(assessment.factors).toFixed(2)),
+      normalizedProbability,
+    };
+  });
+
+  return { predictions, scorecards };
+}
+
+async function scoreFactorsFromFacts(
+  raceTitle: string,
+  candidates: Candidate[],
+  currentRaceContext: CurrentRaceContext,
+): Promise<CandidateFactorAssessment[]> {
+  const candidateDescriptions = candidates.map((candidate, index) => ({
+    order: index + 1,
+    name: candidate.name,
+    party: candidate.party,
+    pollingAverage: candidate.pollingAverage ?? null,
+    recentPolls: candidate.recentPolls ?? null,
+    pollDate: candidate.pollDate ?? null,
+    pollsterGrade: candidate.pollsterGrade ?? null,
+    fundraisingTotal: candidate.fundraisingTotal ?? null,
+    cashOnHand: candidate.cashOnHand ?? null,
+    fundraisingQuarter: candidate.fundraisingQuarter ?? null,
+    isIncumbent: candidate.isIncumbent ?? null,
+    incumbentOffice: candidate.incumbentOffice ?? null,
+    yearsExperience: candidate.yearsExperience ?? null,
+    majorEndorsements: candidate.majorEndorsements ?? null,
+    endorsementsList: candidate.endorsementsList ?? null,
+    priorElectionResults: candidate.priorElectionResults ?? null,
+    districtPartisanLean: candidate.districtPartisanLean ?? null,
+    electionType: candidate.electionType ?? null,
+    position: candidate.position ?? null,
+    state: candidate.state ?? null,
+    district: candidate.district ?? null,
+  }));
+
+  const scoringPrompt = `You are a political analyst scoring candidates ONLY from the provided facts. Do not invent outside facts.
+
+Task order:
+1. Review the collected facts.
+2. Score each factor from 0-100 for each candidate.
+3. Provide a short rationale for each factor.
+4. Do NOT assign win probabilities.
+
+Race: ${raceTitle}
+Candidates:
+${JSON.stringify(candidateDescriptions, null, 2)}
+
+Collected Facts:
+${JSON.stringify(currentRaceContext, null, 2)}
+
+Return ONLY valid JSON:
+{
+  "candidates": [
+    {
+      "candidateName": "Full Name",
+      "factors": {
+        "partisanLean": 0,
+        "polling": 0,
+        "candidateExperience": 0,
+        "fundraising": 0,
+        "nameRecognition": 0,
+        "endorsements": 0,
+        "issueAlignment": 0,
+        "momentum": 0
+      },
+      "factorRationales": {
+        "partisanLean": "...",
+        "polling": "...",
+        "candidateExperience": "...",
+        "fundraising": "...",
+        "nameRecognition": "...",
+        "endorsements": "...",
+        "issueAlignment": "...",
+        "momentum": "..."
+      },
+      "overallRationale": "2-3 sentence summary of why this candidate scored where they did"
+    }
+  ]
+}
+
+Rules:
+- Use only the collected facts and candidate snapshot.
+- If a factor has weak evidence, say so in the rationale and use a conservative score.
+- Every listed candidate must appear exactly once.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [{ role: "user", content: scoringPrompt }],
+      max_tokens: 2500,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content || !content.trim()) {
+      return candidates.map(buildDeterministicAssessment);
+    }
+
+    const parsed = JSON.parse(cleanJsonContent(content)) as Record<string, unknown>;
+    const rows = Array.isArray(parsed.candidates) ? parsed.candidates : [];
+
+    const assessments = rows
+      .map((row): CandidateFactorAssessment | null => {
+        if (!row || typeof row !== "object") return null;
+        const record = row as Record<string, unknown>;
+        const candidateName = String(record.candidateName || "").trim();
+        if (!candidateName) return null;
+
+        const rationalesInput = (record.factorRationales && typeof record.factorRationales === "object")
+          ? record.factorRationales as Record<string, unknown>
+          : {};
+
+        const factorRationales: Partial<Record<PredictionFactorKey, string>> = {};
+        for (const key of FACTOR_KEYS) {
+          const rationale = rationalesInput[key];
+          if (typeof rationale === "string" && rationale.trim()) {
+            factorRationales[key] = rationale.trim();
+          }
+        }
+
+        return {
+          candidateName,
+          factors: coerceFactors(record.factors),
+          factorRationales,
+          overallRationale: typeof record.overallRationale === "string" ? record.overallRationale.trim() : undefined,
+        };
+      })
+      .filter((assessment): assessment is CandidateFactorAssessment => assessment !== null);
+
+    return assessments.length > 0 ? assessments : candidates.map(buildDeterministicAssessment);
+  } catch (error) {
+    console.warn("[reanalyzeRace] Factor scoring failed, using deterministic assessments:", error);
+    return candidates.map(buildDeterministicAssessment);
+  }
+}
+
+async function generateReanalysisExplanation(
+  raceTitle: string,
+  currentRaceContext: CurrentRaceContext,
+  scorecards: ReanalysisScorecard[],
+): Promise<string> {
+  const explanationPrompt = `You are a political analyst writing the final explanation AFTER facts were collected and factors were scored.
+
+Race: ${raceTitle}
+Retrieved Facts:
+${JSON.stringify(currentRaceContext, null, 2)}
+
+Scored Candidates:
+${JSON.stringify(scorecards, null, 2)}
+
+Write 3-4 concise paragraphs that:
+- explain why the leading candidate leads,
+- explain the biggest movement drivers,
+- reference the freshest sources by source name and publication date,
+- note any weak-evidence areas or uncertainty.
+
+Do not change the scores or probabilities. Use the scored candidates exactly as given.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [{ role: "user", content: explanationPrompt }],
+      max_tokens: 900,
+    });
+
+    return response.choices[0]?.message?.content?.trim()
+      || "Updated based on collected facts, normalized factor scores, and the freshest available race context.";
+  } catch (error) {
+    console.warn("[reanalyzeRace] Explanation generation failed:", error);
+    return "Updated based on collected facts, normalized factor scores, and the freshest available race context.";
+  }
+}
+
+async function fetchCurrentRaceContext(
+  raceTitle: string,
+  candidates: Candidate[]
+): Promise<CurrentRaceContext> {
+  const retrievedAt = new Date().toISOString();
+  const candidateSnapshot = candidates.map((candidate) => ({
+    name: candidate.name,
+    party: candidate.party,
+    pollingAverage: candidate.pollingAverage ?? null,
+    recentPolls: candidate.recentPolls ?? null,
+    pollDate: candidate.pollDate ?? null,
+    pollsterGrade: candidate.pollsterGrade ?? null,
+    fundraisingTotal: candidate.fundraisingTotal ?? null,
+    cashOnHand: candidate.cashOnHand ?? null,
+    fundraisingQuarter: candidate.fundraisingQuarter ?? null,
+    isIncumbent: candidate.isIncumbent ?? null,
+    incumbentOffice: candidate.incumbentOffice ?? null,
+    yearsExperience: candidate.yearsExperience ?? null,
+    majorEndorsements: candidate.majorEndorsements ?? null,
+    endorsementsList: candidate.endorsementsList ?? null,
+    priorElectionResults: candidate.priorElectionResults ?? null,
+    districtPartisanLean: candidate.districtPartisanLean ?? null,
+    electionType: candidate.electionType ?? null,
+    state: candidate.state ?? null,
+    district: candidate.district ?? null,
+    position: candidate.position ?? null,
+  }));
+
+  const fallbackContext: CurrentRaceContext = {
+    retrievedAt,
+    raceContextSummary: "No live research sources were retrieved. Using stored candidate inputs and model priors.",
+    pollingNotes: [],
+    fundraisingNotes: [],
+    endorsementNotes: [],
+    incumbencyAndExperienceNotes: [],
+    geographyNotes: [],
+    sources: [],
+  };
+
+  const researchPrompt = `You are a political research assistant. Gather the freshest available context for this race and candidates.
+
+Race: ${raceTitle}
+RetrievedAt: ${retrievedAt}
+Candidate Snapshot:
+${JSON.stringify(candidateSnapshot, null, 2)}
+
+Research requirements:
+- Pull recent polling if available.
+- Pull recent fundraising/FEC-style reporting and campaign finance signals if available.
+- Pull recent endorsements and party/union/institutional support updates if available.
+- Pull recent news that materially changes race dynamics.
+- Include district/state context relevant to turnout, demographics, partisan lean, and incumbency.
+
+Return ONLY valid JSON with this exact shape:
+{
+  "raceContextSummary": "short synthesis",
+  "pollingNotes": ["..."],
+  "fundraisingNotes": ["..."],
+  "endorsementNotes": ["..."],
+  "incumbencyAndExperienceNotes": ["..."],
+  "geographyNotes": ["..."],
+  "sources": [
+    {
+      "sourceName": "source/publication",
+      "sourceUrl": "https://...",
+      "publicationDate": "YYYY-MM-DD or ISO timestamp",
+      "sourceType": "news|polling|fundraising|endorsements|context",
+      "snippet": "key evidence excerpt"
+    }
+  ]
+}
+
+Rules:
+- Include publicationDate for every source.
+- Include at least 5 sources when available.
+- Prefer sources published in the last 30 days when possible.
+- Do not fabricate URLs.
+- If a dimension is unavailable, return an empty array for that note list.`;
+
+  try {
+    const response = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: researchPrompt,
+      tools: [{ type: "web_search_preview" }],
+      temperature: 0.1,
+      max_output_tokens: 1800,
+    });
+
+    const responseText = extractResponseText(response);
+    if (!responseText.trim()) {
+      return fallbackContext;
+    }
+
+    const parsed = JSON.parse(cleanJsonContent(responseText)) as Record<string, unknown>;
+    const validSourceTypes = new Set(["news", "polling", "fundraising", "endorsements", "context"]);
+    const parsedSources = parsed.sources;
+
+    const toStringArray = (value: unknown): string[] =>
+      Array.isArray(value) ? value.map((v) => String(v)) : [];
+
+    const safeSources: RaceContextSource[] = Array.isArray(parsedSources)
+      ? parsedSources
+        .map((source) => {
+          if (!source || typeof source !== "object") return null;
+          const src = source as Record<string, unknown>;
+          const sourceType = String(src.sourceType || "").toLowerCase();
+          if (!validSourceTypes.has(sourceType)) return null;
+
+          const sourceName = String(src.sourceName || "").trim();
+          const sourceUrl = String(src.sourceUrl || "").trim();
+          const publicationDate = String(src.publicationDate || "").trim();
+          const snippet = String(src.snippet || "").trim();
+
+          if (!sourceName || !sourceUrl || !publicationDate || !snippet) return null;
+
+          return {
+            sourceName,
+            sourceUrl,
+            publicationDate,
+            sourceType: sourceType as RaceContextSource["sourceType"],
+            snippet,
+          };
+        })
+        .filter((source): source is RaceContextSource => source !== null)
+      : [];
+
+    return {
+      retrievedAt,
+      raceContextSummary: String(parsed.raceContextSummary || fallbackContext.raceContextSummary),
+      pollingNotes: toStringArray(parsed.pollingNotes),
+      fundraisingNotes: toStringArray(parsed.fundraisingNotes),
+      endorsementNotes: toStringArray(parsed.endorsementNotes),
+      incumbencyAndExperienceNotes: toStringArray(parsed.incumbencyAndExperienceNotes),
+      geographyNotes: toStringArray(parsed.geographyNotes),
+      sources: safeSources,
+    };
+  } catch (error) {
+    console.warn("[reanalyzeRace] Failed to fetch fresh context:", error);
+    return fallbackContext;
+  }
+}
 
 /**
  * Normalizes probabilities to guarantee:
@@ -186,70 +829,18 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
       cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
     }
 
-    const result = JSON.parse(cleanedContent);
+    const result = customPredictionResponseSchema.parse(JSON.parse(cleanedContent));
+    const validatedPredictions = validatePredictionMapForCandidates(result.predictions, candidates);
 
     return {
-      predictions: result.predictions || {},
+      predictions: validatedPredictions,
       analysis: result.analysis || "Analysis generated based on candidate profiles and party affiliations.",
     };
   } catch (error) {
     console.error("OpenAI API error:", error);
 
-    const fallbackPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-
-    // Generate deterministic factor scores based on candidate properties
-    const candidatesWithScores = candidates.map((c, i) => {
-      // Use name hash and index for deterministic but varied scores
-      const nameHash = c.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const seed = (nameHash + i * 17) % 100;
-
-      // Deterministic factor generation (40-80 range for variety)
-      const factors: PredictionFactors = {
-        partisanLean: 40 + ((seed * 7) % 40),
-        polling: 40 + ((seed * 29) % 40),
-        candidateExperience: 40 + ((seed * 11) % 40),
-        fundraising: 40 + ((seed * 31) % 40),
-        nameRecognition: 40 + ((seed * 13) % 40),
-        endorsements: 40 + ((seed * 17) % 40),
-        issueAlignment: 40 + ((seed * 19) % 40),
-        momentum: 40 + ((seed * 23) % 40),
-      };
-
-      // Calculate weighted composite score using the 8-factor model
-      const compositeScore =
-        (factors.partisanLean * 0.25) +
-        (factors.polling * 0.20) +
-        (factors.candidateExperience * 0.15) +
-        (factors.fundraising * 0.15) +
-        (factors.nameRecognition * 0.10) +
-        (factors.endorsements * 0.10) +
-        (factors.issueAlignment * 0.05) +
-        (factors.momentum * 0.05);
-
-      return { candidate: c, factors, compositeScore };
-    });
-
-    // Sort by composite score descending, then alphabetically for ties
-    candidatesWithScores.sort((a, b) => {
-      const scoreDiff = b.compositeScore - a.compositeScore;
-      if (scoreDiff !== 0) return scoreDiff;
-      return a.candidate.name.localeCompare(b.candidate.name);
-    });
-
-    // Use shared helper to normalize probabilities with guaranteed uniqueness
-    const weightedScores = candidatesWithScores.map(item => item.compositeScore);
-    const probs = normalizeUniqueProbabilities(weightedScores);
-
-    // Assign probabilities
-    candidatesWithScores.forEach((item, i) => {
-      fallbackPredictions[item.candidate.name] = {
-        probability: probs[i],
-        factors: item.factors,
-      };
-    });
-
     return {
-      predictions: fallbackPredictions,
+      predictions: buildFallbackPredictionsFromScenarioCandidates(candidates),
       analysis: "Early-cycle prediction analysis based on statistical modeling using publicly available data. Each candidate's viability depends on partisan lean, candidate experience, name recognition, endorsements, issue alignment, and momentum—with NO polling or fundraising data required.",
     };
   }
@@ -398,262 +989,49 @@ function generateDeterministicPredictions(
   candidates: Candidate[]
 ): Record<string, { probability: number; factors: PredictionFactors }> {
   console.log("[reanalyzeRace] Using deterministic fallback - AI unavailable");
-
-  // Generate deterministic factor scores and calculate weighted composite scores
-  const candidatesWithScores = candidates.map((candidate, index) => {
-    // Generate deterministic factor scores based on candidate ID hash
-    const hash = hashString(candidate.id);
-    const seed = hash % 100;
-
-    // Use actual candidate data when available, otherwise use deterministic values
-    const factors: PredictionFactors = {
-      // Use hash-derived values for stable, deterministic factors (40-70 range)
-      partisanLean: 40 + ((seed + 0) % 30),
-      // Use actual polling data if available, otherwise deterministic
-      polling: candidate.pollingAverage !== undefined && candidate.pollingAverage !== null
-        ? Math.min(100, Math.max(0, candidate.pollingAverage))
-        : 40 + ((seed + 11) % 30),
-      // Boost experience score for incumbents and based on years
-      candidateExperience: (() => {
-        let base = 40 + ((seed + 23) % 30);
-        if (candidate.isIncumbent) base += 20;
-        if (candidate.yearsExperience !== undefined && candidate.yearsExperience !== null) {
-          base = Math.min(100, base + Math.min(30, candidate.yearsExperience * 2));
-        }
-        return Math.min(100, base);
-      })(),
-      // Use actual fundraising if available, scale to 0-100
-      fundraising: candidate.fundraisingTotal !== undefined && candidate.fundraisingTotal !== null
-        ? Math.min(100, Math.max(0, Math.min(100, candidate.fundraisingTotal / 10000000 * 100)))
-        : 40 + ((seed + 37) % 30),
-      nameRecognition: 40 + ((seed + 47) % 30),
-      // Use actual endorsement count if available
-      endorsements: candidate.majorEndorsements !== undefined && candidate.majorEndorsements !== null && candidate.majorEndorsements > 0
-        ? Math.min(100, 30 + candidate.majorEndorsements * 10)
-        : 40 + ((seed + 59) % 30),
-      issueAlignment: 40 + ((seed + 71) % 30),
-      momentum: 40 + ((seed + 83) % 30),
-    };
-
-    // Calculate weighted composite score using the 8-factor model
-    const compositeScore =
-      (factors.partisanLean * 0.25) +
-      (factors.polling * 0.20) +
-      (factors.candidateExperience * 0.15) +
-      (factors.fundraising * 0.15) +
-      (factors.nameRecognition * 0.10) +
-      (factors.endorsements * 0.10) +
-      (factors.issueAlignment * 0.05) +
-      (factors.momentum * 0.05);
-
-    return { candidate, factors, compositeScore };
-  });
-
-  // Sort by composite score descending, then alphabetically for ties
-  candidatesWithScores.sort((a, b) => {
-    const scoreDiff = b.compositeScore - a.compositeScore;
-    if (scoreDiff !== 0) return scoreDiff;
-    return a.candidate.name.localeCompare(b.candidate.name);
-  });
-
-  // Use shared helper to normalize probabilities with guaranteed uniqueness
-  const weightedScores = candidatesWithScores.map(item => item.compositeScore);
-  const probs = normalizeUniqueProbabilities(weightedScores);
-
-  // Assign probabilities
-  const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-  candidatesWithScores.forEach((item, index) => {
-    predictions[item.candidate.name] = {
-      probability: probs[index],
-      factors: item.factors,
-    };
-  });
-
-  return predictions;
+  return buildNormalizedPredictionsFromAssessments(
+    candidates,
+    candidates.map(buildDeterministicAssessment),
+  ).predictions;
 }
 
 export async function reanalyzeRace(
   raceTitle: string,
   candidates: Candidate[]
-): Promise<Record<string, { probability: number; factors: PredictionFactors }>> {
-  // Build detailed candidate descriptions with available data
-  const candidateDescriptions = candidates.map((c, i) => {
-    let desc = `${i + 1}. ${c.name} (${c.party})`;
-    const details: string[] = [];
-    if (c.pollingAverage !== undefined && c.pollingAverage !== null) details.push(`Polling: ${c.pollingAverage}%`);
-    if (c.fundraisingTotal !== undefined && c.fundraisingTotal !== null) details.push(`Fundraising: $${c.fundraisingTotal.toLocaleString()}`);
-    if (c.isIncumbent) details.push('Incumbent');
-    if (c.yearsExperience !== undefined && c.yearsExperience !== null) details.push(`Experience: ${c.yearsExperience} years`);
-    if (c.majorEndorsements !== undefined && c.majorEndorsements !== null && c.majorEndorsements > 0) details.push(`Endorsements: ${c.majorEndorsements}`);
-    if (c.position) details.push(`Position: ${c.position}`);
-    if (details.length > 0) desc += ` - ${details.join(', ')}`;
-    return desc;
-  }).join('\n');
-
-  const prompt = `You are a political data scientist. Re-analyze this election with the LATEST current events and political landscape:
-
-Race: ${raceTitle}
-Candidates:
-${candidateDescriptions}
-
-IMPORTANT: Consider the CURRENT political climate, recent news, latest developments, AND the candidate data provided above. Use actual polling and fundraising data when available. Generate UPDATED win probabilities and factor scores (0-100) for each candidate.
-
-Use this comprehensive 8-factor prediction model:
-
-{
-  "predictions": {
-    "candidate_name": {
-      "probability": number (0-100),
-      "factors": {
-        "partisanLean": number (0-100) - PVI, district demographics, past results (25% weight),
-        "polling": number (0-100) - Average polling performance, voter sentiment (20% weight),
-        "candidateExperience": number (0-100) - Incumbent advantage, offices held (15% weight),
-        "fundraising": number (0-100) - Campaign resources, cash raised (15% weight),
-        "nameRecognition": number (0-100) - Media coverage, Google Trends, social media (10% weight),
-        "endorsements": number (0-100) - Party support, official/union backing (10% weight),
-        "issueAlignment": number (0-100) - Match with district ideology/issues (5% weight),
-        "momentum": number (0-100) - Volunteer activity, event attendance, organic growth (5% weight)
-      }
-    }
-  }
-}
-
-CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. Even slight differences in factors should produce different probabilities (e.g., 23.4%, 22.7%, 19.3%, NOT 20.0%, 20.0%, 20.0%). Probabilities must sum to ~100. Return ONLY valid JSON.`;
+): Promise<ReanalyzeRaceResult> {
+  const currentRaceContext = await fetchCurrentRaceContext(raceTitle, candidates);
+  const withContext = (
+    predictions: Record<string, { probability: number; factors: PredictionFactors }>,
+    analysis: string,
+    scorecards: ReanalysisScorecard[],
+  ): ReanalyzeRaceResult => ({
+    predictions,
+    sourceContext: currentRaceContext,
+    analysis,
+    scorecards,
+  });
 
   try {
-    console.log(`[reanalyzeRace] Calling OpenAI API for race: ${raceTitle}`);
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 2000,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    console.log(`[reanalyzeRace] Raw AI response:`, content || "(empty)");
-    console.log(`[reanalyzeRace] Finish reason:`, response.choices[0]?.finish_reason);
-    console.log(`[reanalyzeRace] Usage:`, response.usage);
-
-    // Detect empty/falsy responses and fall back to deterministic predictions
-    if (!content || content.trim() === "" || content === "{}") {
-      console.warn("[reanalyzeRace] AI returned empty response - using deterministic fallback");
-      return generateDeterministicPredictions(candidates);
-    }
-
-    // Strip markdown code blocks if present (OpenAI sometimes wraps JSON in ```json ... ```)
-    let cleanedContent = content.trim();
-    if (cleanedContent.startsWith('```')) {
-      // Remove opening ```json or ``` and closing ```
-      cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
-    }
-
-    const result = JSON.parse(cleanedContent);
-
-    if (!result.predictions || Object.keys(result.predictions).length === 0) {
-      console.warn("[reanalyzeRace] AI returned no predictions - using deterministic fallback");
-      return generateDeterministicPredictions(candidates);
-    }
-
-    // Validate and normalize AI-generated probabilities
-    const predictionEntries = Object.entries(result.predictions).map(([name, data]: [string, any]) => {
-      const prob = typeof data.probability === 'number' ? data.probability : parseFloat(data.probability);
-      return {
-        name,
-        probability: isNaN(prob) || !isFinite(prob) ? 0 : prob,
-        factors: data.factors,
-      };
-    });
-
-    // Check if probabilities are valid for normalization
-    const totalProb = predictionEntries.reduce((sum, entry) => sum + entry.probability, 0);
-    const hasInvalidProbs = predictionEntries.some(entry => entry.probability < 0 || !isFinite(entry.probability));
-
-    if (totalProb <= 0 || hasInvalidProbs) {
-      console.warn("[reanalyzeRace] AI returned invalid probabilities (sum=" + totalProb + ") - using deterministic fallback");
-      return generateDeterministicPredictions(candidates);
-    }
-
-    // Sort by probability descending (required by normalizeUniqueProbabilities)
-    predictionEntries.sort((a, b) => b.probability - a.probability);
-
-    // Extract sorted probabilities for normalization
-    const sortedProbabilities = predictionEntries.map(entry => entry.probability);
-
-    // Normalize probabilities to ensure they sum to exactly 100% and are unique
-    let normalizedProbs: number[];
-    try {
-      normalizedProbs = normalizeUniqueProbabilities(sortedProbabilities);
-
-      // Validate normalized output
-      const sum = normalizedProbs.reduce((a, b) => a + b, 0);
-      const allValid = normalizedProbs.every((p, i) => {
-        if (!isFinite(p) || p < 0.1 || p > 100) return false;
-        if (i > 0 && p >= normalizedProbs[i - 1]) return false; // Must be descending
-        if (i > 0 && normalizedProbs[i - 1] - p < 0.3) return false; // Must have 0.3% gap
-        return true;
-      });
-
-      if (!allValid || Math.abs(sum - 100) > 0.01) {
-        console.warn(`[reanalyzeRace] Normalization produced invalid probabilities (sum=${sum.toFixed(2)}%) - using deterministic fallback`);
-        return generateDeterministicPredictions(candidates);
-      }
-    } catch (error) {
-      console.warn("[reanalyzeRace] Normalization failed:", error, "- using deterministic fallback");
-      return generateDeterministicPredictions(candidates);
-    }
-
-    // Rebuild predictions with normalized probabilities mapped to correct candidates
-    const normalizedPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-    predictionEntries.forEach((entry, index) => {
-      normalizedPredictions[entry.name] = {
-        probability: normalizedProbs[index],
-        factors: entry.factors,
-      };
-    });
-
-    // CRITICAL: Ensure ALL candidates have predictions
-    // If AI missed any candidates (especially newly added ones), use deterministic fallback for them
-    const candidatesWithPredictions = new Set(Object.keys(normalizedPredictions));
-    const missingCandidates = candidates.filter(c => !candidatesWithPredictions.has(c.name));
-
-    if (missingCandidates.length > 0) {
-      console.warn(`[reanalyzeRace] AI missed ${missingCandidates.length} candidates: ${missingCandidates.map(c => c.name).join(', ')} - generating deterministic predictions for them`);
-      const deterministicFallback = generateDeterministicPredictions(missingCandidates);
-
-      // Merge AI predictions with deterministic predictions for missing candidates
-      Object.assign(normalizedPredictions, deterministicFallback);
-
-      // Re-normalize all probabilities to ensure they still sum to exactly 100%
-      const allPredictions = candidates.map(c => ({
-        name: c.name,
-        probability: normalizedPredictions[c.name]?.probability || 0,
-        factors: normalizedPredictions[c.name]?.factors || { partisanLean: 0, polling: 0, candidateExperience: 0, fundraising: 0, nameRecognition: 0, endorsements: 0, issueAlignment: 0, momentum: 0 }
-      }));
-
-      // Sort by probability for renormalization
-      allPredictions.sort((a, b) => b.probability - a.probability);
-      const allProbs = allPredictions.map(p => p.probability);
-      const finalNormalizedProbs = normalizeUniqueProbabilities(allProbs);
-
-      // Rebuild with all candidates and renormalized probabilities
-      const finalPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-      allPredictions.forEach((entry, index) => {
-        finalPredictions[entry.name] = {
-          probability: finalNormalizedProbs[index],
-          factors: entry.factors,
-        };
-      });
-
-      return finalPredictions;
-    }
-
-    return normalizedPredictions;
+    const assessments = await scoreFactorsFromFacts(raceTitle, candidates, currentRaceContext);
+    const { predictions, scorecards } = buildNormalizedPredictionsFromAssessments(candidates, assessments);
+    const analysis = await generateReanalysisExplanation(raceTitle, currentRaceContext, scorecards);
+    return withContext(predictions, analysis, scorecards);
   } catch (error) {
     console.error("OpenAI API error during reanalysis:", error);
     if (error instanceof Error) {
       console.error("Error message:", error.message);
     }
-    console.warn("[reanalyzeRace] Falling back to deterministic predictions");
-    return generateDeterministicPredictions(candidates);
+
+    const { predictions, scorecards } = buildNormalizedPredictionsFromAssessments(
+      candidates,
+      candidates.map(buildDeterministicAssessment),
+    );
+
+    return withContext(
+      predictions,
+      "Updated using deterministic fallback scoring from stored candidate attributes because the AI reanalysis pipeline was unavailable.",
+      scorecards,
+    );
   }
 }
 
@@ -718,13 +1096,13 @@ Return ONLY valid JSON:
 Query: "${query}"
 
 Instructions:
-1. Create a specific race title in this format: "[YEAR] [STATE/LOCATION] [POSITION] Race" 
+1. Create a specific race title in this format: "[YEAR] [STATE/LOCATION] [POSITION] Race"
    - Examples: "2028 New York Senate Race", "2026 Texas Governor Race", "2024 California Democratic Primary"
    - Be specific and descriptive, NOT generic like "Election Scenario Analysis"
 2. Extract ONLY the candidate names who are COMPETING for this position
    - DO NOT include politicians who are retiring or stepping down
    - DO NOT include race names or locations as candidates
-   - Look for candidates in: comma-separated lists, bulleted lists (• - *), or sentence context
+   - Look for candidates in: comma-separated lists, bulleted lists, or sentence context
 3. For each candidate, infer their party affiliation based on your knowledge
 4. Generate realistic win probabilities and factor scores
 5. Provide comprehensive 4-5 paragraph analysis
@@ -783,7 +1161,7 @@ Probabilities must sum to ~100.`;
       cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
     }
 
-    const result = JSON.parse(cleanedContent);
+    const result = naturalLanguageResponseSchema.parse(JSON.parse(cleanedContent));
     console.log("Parsed result:", {
       raceTitle: result.raceTitle,
       candidateCount: result.candidates?.length || 0,
@@ -795,10 +1173,18 @@ Probabilities must sum to ~100.`;
       throw new Error("No candidates in OpenAI response");
     }
 
+    let validatedPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
+    try {
+      validatedPredictions = validatePredictionMapForCandidates(result.predictions, result.candidates);
+    } catch (validationError) {
+      console.warn("Invalid AI prediction payload for natural language analysis, repairing with deterministic fallback:", validationError);
+      validatedPredictions = buildFallbackPredictionsFromScenarioCandidates(result.candidates);
+    }
+
     return {
       raceTitle: result.raceTitle || "Election Analysis",
       candidates: result.candidates,
-      predictions: result.predictions || {},
+      predictions: validatedPredictions,
       analysis: result.analysis || "Analysis of the electoral scenario based on the provided information.",
     };
   } catch (error) {

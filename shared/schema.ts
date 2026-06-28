@@ -33,6 +33,16 @@ export const candidates = pgTable("candidates", {
   isIncumbent: integer("is_incumbent").default(0),
   yearsExperience: integer("years_experience"),
   majorEndorsements: integer("major_endorsements"),
+  recentPolls: jsonb("recent_polls").$type<number[]>(),
+  pollDate: text("poll_date"),
+  pollsterGrade: text("pollster_grade"),
+  cashOnHand: doublePrecision("cash_on_hand"),
+  fundraisingQuarter: text("fundraising_quarter"),
+  endorsementsList: jsonb("endorsements_list").$type<string[]>(),
+  incumbentOffice: text("incumbent_office"),
+  priorElectionResults: jsonb("prior_election_results").$type<string[]>(),
+  districtPartisanLean: doublePrecision("district_partisan_lean"),
+  electionType: varchar("election_type", { length: 20 }),
 });
 
 export const predictions = pgTable("predictions", {
@@ -48,6 +58,19 @@ export const predictions = pgTable("predictions", {
 }, (table) => ({
   pk: primaryKey({ columns: [table.raceId, table.candidateId] })
 }));
+
+export const predictionSources = pgTable("prediction_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
+  candidateId: varchar("candidate_id").references(() => candidates.id, { onDelete: 'set null' }),
+  factor: varchar("factor", { length: 40 }),
+  sourceType: varchar("source_type", { length: 40 }).notNull(),
+  sourceUrl: text("source_url").notNull(),
+  sourceTitle: text("source_title").notNull(),
+  publishedAt: timestamp("published_at"),
+  retrievedAt: timestamp("retrieved_at").notNull(),
+  summary: text("summary").notNull(),
+});
 
 export const raceCandidates = pgTable("race_candidates", {
   raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
@@ -113,6 +136,16 @@ export interface Candidate {
   isIncumbent?: number;
   yearsExperience?: number;
   majorEndorsements?: number;
+  recentPolls?: number[];
+  pollDate?: string;
+  pollsterGrade?: string;
+  cashOnHand?: number;
+  fundraisingQuarter?: string;
+  endorsementsList?: string[];
+  incumbentOffice?: string;
+  priorElectionResults?: string[];
+  districtPartisanLean?: number;
+  electionType?: "Primary" | "General";
 }
 
 export interface Race {
@@ -135,6 +168,36 @@ export interface Prediction {
   lastUpdated: string;
   methodology: string;
   aiAnalysis?: string;
+  dataQualityScore?: number;
+  pollingFreshnessDays?: number;
+  sourceCount?: number;
+  hasRecentPolling?: boolean;
+  hasRecentFundraising?: boolean;
+}
+
+export interface PredictionSource {
+  id: string;
+  raceId: string;
+  candidateId?: string;
+  factor?: keyof PredictionFactors;
+  sourceType: string;
+  sourceUrl: string;
+  sourceTitle: string;
+  publishedAt?: string;
+  retrievedAt: string;
+  summary: string;
+}
+
+export interface InsertPredictionSource {
+  raceId: string;
+  candidateId?: string;
+  factor?: keyof PredictionFactors;
+  sourceType: string;
+  sourceUrl: string;
+  sourceTitle: string;
+  publishedAt?: string;
+  retrievedAt: string;
+  summary: string;
 }
 
 export interface ComparisonResult {
@@ -194,6 +257,16 @@ export const insertCandidateSchema = z.object({
   isIncumbent: z.number().min(0).max(1).optional(),
   yearsExperience: z.number().int().min(0).optional(),
   majorEndorsements: z.string().optional(),
+  recentPolls: z.array(z.number().min(0).max(100)).optional(),
+  pollDate: z.string().optional(),
+  pollsterGrade: z.string().optional(),
+  cashOnHand: z.number().min(0).optional(),
+  fundraisingQuarter: z.string().optional(),
+  endorsementsList: z.array(z.string().min(1)).optional(),
+  incumbentOffice: z.string().optional(),
+  priorElectionResults: z.array(z.string().min(1)).optional(),
+  districtPartisanLean: z.number().min(-100).max(100).optional(),
+  electionType: z.enum(["Primary", "General"]).optional(),
 });
 
 export const insertRaceSchema = z.object({

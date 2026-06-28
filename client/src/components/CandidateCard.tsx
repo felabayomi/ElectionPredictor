@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PartyBadge } from "./PartyBadge";
 import { ProbabilityBar } from "./ProbabilityBar";
 import type { Candidate, Prediction } from "@shared/schema";
@@ -46,6 +47,20 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
     );
   }
 
+  const dataQualityTone = prediction?.dataQualityScore != null
+    ? prediction.dataQualityScore >= 75
+      ? "default"
+      : prediction.dataQualityScore >= 50
+        ? "secondary"
+        : "destructive"
+    : "secondary";
+
+  const pollingFreshnessLabel = prediction?.hasRecentPolling
+    ? prediction.pollingFreshnessDays != null
+      ? `Recent polling: ${prediction.pollingFreshnessDays}d`
+      : "Recent polling"
+    : "No recent polling";
+
   return (
     <Card className="hover-elevate transition-all" data-testid={`card-candidate-${candidate.id}`}>
       <CardHeader className="pb-4">
@@ -84,6 +99,27 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
             party={candidate.party}
             confidenceInterval={prediction.confidenceInterval}
           />
+
+          <div className="flex flex-wrap gap-2">
+            {prediction.dataQualityScore != null && (
+              <Badge variant={dataQualityTone}>
+                Data quality: {prediction.dataQualityScore}/100
+              </Badge>
+            )}
+            <Badge variant={prediction.hasRecentPolling ? "default" : "secondary"}>
+              {pollingFreshnessLabel}
+            </Badge>
+            {prediction.hasRecentFundraising != null && (
+              <Badge variant={prediction.hasRecentFundraising ? "default" : "secondary"}>
+                {prediction.hasRecentFundraising ? "Recent fundraising" : "No recent fundraising"}
+              </Badge>
+            )}
+            {prediction.sourceCount != null && (
+              <Badge variant="outline">
+                {prediction.sourceCount} source{prediction.sourceCount === 1 ? "" : "s"}
+              </Badge>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="space-y-1">

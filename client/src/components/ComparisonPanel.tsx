@@ -12,7 +12,7 @@ interface ComparisonPanelProps {
 }
 
 export function ComparisonPanel({ comparison }: ComparisonPanelProps) {
-  const { candidate1, candidate2, prediction1, prediction2, factorComparison, aiInsights } = comparison;
+  const { candidate1, candidate2, race, prediction1, prediction2, factorComparison, aiInsights } = comparison;
 
   if (!candidate1 || !candidate2 || !prediction1 || !prediction2) {
     return (
@@ -48,7 +48,7 @@ export function ComparisonPanel({ comparison }: ComparisonPanelProps) {
   };
 
   const shareText = `⚖️ ${candidate1.name} vs ${candidate2.name} in ${race.title}: ${prediction1.winProbability.toFixed(1)}% vs ${prediction2.winProbability.toFixed(1)}%. Check out this AI-powered election analysis!`;
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4">

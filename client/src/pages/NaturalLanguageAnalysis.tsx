@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
+import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, Prediction } from "@shared/schema";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
@@ -51,7 +52,7 @@ export default function NaturalLanguageAnalysis() {
     onError: (error) => {
       console.error("Natural language analysis error:", error);
 
-      const errorMessage = error instanceof Error ? error.message : "Failed to analyze your question. Please try again.";
+      const errorMessage = getErrorMessage(error, "Failed to analyze your question. Please try again.");
       const isFactFinding = errorMessage.includes("FACT_FINDING_QUESTION:");
 
       toast({
@@ -63,6 +64,9 @@ export default function NaturalLanguageAnalysis() {
       });
     },
   });
+
+  const analysisErrorMessage = getErrorMessage(analyzeMutation.error, "Analysis failed");
+  const isFactFindingError = analysisErrorMessage.includes("FACT_FINDING_QUESTION:");
 
   const handleAnalyze = () => {
     setShowCreateWarning(true);
@@ -160,21 +164,18 @@ export default function NaturalLanguageAnalysis() {
             </Button>
 
             {analyzeMutation.isError && (
-              <div className={`text-sm p-3 rounded-md ${analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
-                  ? "bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800"
-                  : "bg-destructive/10 text-destructive border border-destructive/20"
+              <div className={`text-sm p-3 rounded-md ${isFactFindingError
+                ? "bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800"
+                : "bg-destructive/10 text-destructive border border-destructive/20"
                 }`}>
                 <p className="font-medium mb-1">
-                  {analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
+                  {isFactFindingError
                     ? "Research Question Detected"
                     : "Analysis Failed"
                   }
                 </p>
                 <p className="text-sm">
-                  {analyzeMutation.error instanceof Error
-                    ? analyzeMutation.error.message.replace("FACT_FINDING_QUESTION: ", "")
-                    : "Analysis failed"
-                  }
+                  {analysisErrorMessage.replace("FACT_FINDING_QUESTION: ", "")}
                 </p>
               </div>
             )}

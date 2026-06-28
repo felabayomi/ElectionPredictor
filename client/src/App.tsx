@@ -1,19 +1,21 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/Dashboard";
-import AdminDashboard from "@/pages/AdminDashboard";
-import AdminManage from "@/pages/AdminManage";
-import SubscriberStudio from "@/pages/SubscriberStudio";
-import PresidentialPrimaryCompare from "@/pages/PresidentialPrimaryCompare";
-import NYSenateCompare from "@/pages/NYSenateCompare";
-import RaceDetail from "@/pages/RaceDetail";
-import CustomPrediction from "@/pages/CustomPrediction";
-import NaturalLanguageAnalysis from "@/pages/NaturalLanguageAnalysis";
-import NotFound from "@/pages/not-found";
 import { AdminRoute } from "@/components/AdminRoute";
+
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
+const AdminManage = lazy(() => import("@/pages/AdminManage"));
+const SubscriberStudio = lazy(() => import("@/pages/SubscriberStudio"));
+const PresidentialPrimaryCompare = lazy(() => import("@/pages/PresidentialPrimaryCompare"));
+const NYSenateCompare = lazy(() => import("@/pages/NYSenateCompare"));
+const RaceDetail = lazy(() => import("@/pages/RaceDetail"));
+const CustomPrediction = lazy(() => import("@/pages/CustomPrediction"));
+const NaturalLanguageAnalysis = lazy(() => import("@/pages/NaturalLanguageAnalysis"));
+const NotFound = lazy(() => import("@/pages/not-found"));
 
 function Router() {
   return (
@@ -51,7 +53,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading page...</div>}>
+          <Router />
+        </Suspense>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -2,7 +2,7 @@ import type { Express, NextFunction, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, generateIntelligentSuggestions, reanalyzeRace } from "./openai";
-import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, RaceType, SuggestedMatchup } from "@shared/schema";
+import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, RaceType, SuggestedMatchup, InsertPredictionSource, PredictionSource } from "@shared/schema";
 import { insertFeaturedMatchupSchema, insertRaceSchema, insertCandidateSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import Stripe from "stripe";
@@ -28,6 +28,134 @@ function inferRaceTypeFromText(input: string): RaceType {
   if (/mayor|city\s+council|county|school\s+board|local/.test(text)) return "Local";
 
   return "Local";
+}
+
+function inferFactorFromSourceType(sourceType: string): keyof PredictionFactors | undefined {
+  const normalized = sourceType.toLowerCase();
+  if (normalized === "polling") return "polling";
+  if (normalized === "fundraising") return "fundraising";
+  if (normalized === "endorsements") return "endorsements";
+  return undefined;
+}
+
+function inferCandidateIdFromSourceText(
+  sourceTitle: string,
+  summary: string,
+  candidates: Candidate[],
+): string | undefined {
+  const text = `${sourceTitle} ${summary}`.toLowerCase();
+  const match = candidates.find((candidate) => text.includes(candidate.name.toLowerCase()));
+  return match?.id;
+}
+
+function computeLastCheckedAt(sources: Array<{ retrievedAt: string }>): string | undefined {
+  const latest = sources.reduce((max, source) => {
+    const ts = Date.parse(source.retrievedAt);
+    return Number.isNaN(ts) ? max : Math.max(max, ts);
+  }, 0);
+
+  return latest > 0 ? new Date(latest).toISOString() : undefined;
+}
+
+function buildReanalysisSummary(sourceCount: number, retrievedAt: string): string {
+  if (sourceCount <= 0) {
+    return "Updated using stored candidate data only.";
+  }
+
+  const retrievedDate = new Date(retrievedAt);
+  const retrievedLabel = Number.isNaN(retrievedDate.getTime())
+    ? "recently"
+    : retrievedDate.toLocaleDateString(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+  return `Updated using ${sourceCount} source${sourceCount === 1 ? "" : "s"} retrieved ${retrievedLabel}.`;
+}
+
+type PredictionSourceLike = Pick<PredictionSource, "sourceType" | "publishedAt" | "candidateId">;
+
+function findLatestPublishedAtDays(
+  sources: PredictionSourceLike[],
+  sourceType: string,
+  candidateId?: string,
+): number | undefined {
+  const now = Date.now();
+  const relevant = sources.filter((source) => {
+    if (source.sourceType !== sourceType) return false;
+    if (candidateId && source.candidateId && source.candidateId !== candidateId) return false;
+    return Boolean(source.publishedAt);
+  });
+
+  if (relevant.length === 0) return undefined;
+
+  const latest = relevant.reduce((max, source) => {
+    const ts = Date.parse(source.publishedAt || "");
+    return Number.isNaN(ts) ? max : Math.max(max, ts);
+  }, 0);
+
+  if (latest <= 0) return undefined;
+  return Math.max(0, Math.round((now - latest) / (1000 * 60 * 60 * 24)));
+}
+
+function computePredictionDataQuality(
+  candidate: Candidate | undefined,
+  predictionSources: PredictionSourceLike[],
+): Pick<Prediction, "dataQualityScore" | "pollingFreshnessDays" | "sourceCount" | "hasRecentPolling" | "hasRecentFundraising"> {
+  const candidateScopedSources = candidate
+    ? predictionSources.filter((source) => !source.candidateId || source.candidateId === candidate.id)
+    : predictionSources;
+
+  const sourceCount = candidateScopedSources.length;
+  const pollingFreshnessDays = findLatestPublishedAtDays(candidateScopedSources, "polling", candidate?.id);
+  const fundraisingFreshnessDays = findLatestPublishedAtDays(candidateScopedSources, "fundraising", candidate?.id);
+  const hasRecentPolling = pollingFreshnessDays !== undefined && pollingFreshnessDays <= 30;
+  const hasRecentFundraising = fundraisingFreshnessDays !== undefined && fundraisingFreshnessDays <= 90;
+
+  let dataQualityScore = 20;
+  dataQualityScore += Math.min(30, sourceCount * 4);
+  if (hasRecentPolling) dataQualityScore += 25;
+  else if (candidate?.pollingAverage != null) dataQualityScore += 8;
+  if (hasRecentFundraising) dataQualityScore += 15;
+  else if (candidate?.fundraisingTotal != null) dataQualityScore += 6;
+  if (candidate?.isIncumbent) dataQualityScore += 5;
+  if (candidate?.yearsExperience != null) dataQualityScore += 5;
+
+  return {
+    dataQualityScore: Math.min(100, Math.max(5, dataQualityScore)),
+    pollingFreshnessDays,
+    sourceCount,
+    hasRecentPolling,
+    hasRecentFundraising,
+  };
+}
+
+function buildConfidenceInterval(
+  probability: number,
+  dataQualityScore: number,
+  baseMinWidth = 5,
+): { low: number; high: number } {
+  const width = Math.max(baseMinWidth, Math.round((100 - dataQualityScore) * 0.18));
+  return {
+    low: Math.max(0, probability - width),
+    high: Math.min(100, probability + width),
+  };
+}
+
+function enrichPredictionsWithDataQuality(
+  predictions: Prediction[],
+  candidates: Candidate[],
+  predictionSources: PredictionSource[],
+): Prediction[] {
+  return predictions.map((prediction) => {
+    const candidate = candidates.find((item) => item.id === prediction.candidateId);
+    const dataQuality = computePredictionDataQuality(candidate, predictionSources);
+    return {
+      ...prediction,
+      ...dataQuality,
+    };
+  });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -108,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: "2026-06-24.dahlia",
       });
 
       const appBaseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
@@ -148,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: "2026-06-24.dahlia",
       });
 
       const appBaseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
@@ -174,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const stripe = new Stripe(stripeSecretKey, {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: "2026-06-24.dahlia",
       });
 
       const signature = req.header("stripe-signature");
@@ -222,8 +350,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           stripeCustomerId = typeof subscription.customer === "string" ? subscription.customer : "";
           stripeSubscriptionId = subscription.id;
           stripePriceId = subscription.items.data[0]?.price?.id || "";
-          if (subscription.current_period_end) {
-            currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+          const currentPeriodEndRaw = (subscription as unknown as Record<string, unknown>).current_period_end;
+          if (typeof currentPeriodEndRaw === "number") {
+            currentPeriodEnd = new Date(currentPeriodEndRaw * 1000);
           }
         }
 
@@ -252,7 +381,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         races.map(async (race) => {
           const candidates = await storage.getCandidatesByRace(race.id);
           const predictions = await storage.getPredictionsByRace(race.id);
-          return { race, candidates, predictions };
+          const predictionSources = await storage.getPredictionSourcesByRace(race.id);
+          const enrichedPredictions = enrichPredictionsWithDataQuality(predictions, candidates, predictionSources);
+          return {
+            race,
+            candidates,
+            predictions: enrichedPredictions,
+            predictionSources,
+            lastCheckedAt: computeLastCheckedAt(predictionSources),
+          };
         })
       );
 
@@ -287,6 +424,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/races/:id", async (req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
+
       const race = await storage.getRace(req.params.id);
       if (!race) {
         return res.status(404).json({ error: "Race not found" });
@@ -294,8 +433,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const candidates = await storage.getCandidatesByRace(race.id);
       const predictions = await storage.getPredictionsByRace(race.id);
+      const predictionSources = await storage.getPredictionSourcesByRace(race.id);
+      const enrichedPredictions = enrichPredictionsWithDataQuality(predictions, candidates, predictionSources);
 
-      res.json({ race, candidates, predictions });
+      res.json({
+        race,
+        candidates,
+        predictions: enrichedPredictions,
+        predictionSources,
+        lastCheckedAt: computeLastCheckedAt(predictionSources),
+      });
     } catch (error) {
       console.error("Error fetching race:", error);
       res.status(500).json({ error: "Failed to fetch race" });
@@ -349,6 +496,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/races/:id/reanalyze", async (req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
+
       const race = await storage.getRace(req.params.id);
       if (!race) {
         return res.status(404).json({ error: "Race not found" });
@@ -362,26 +511,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Reanalyzing race: ${race.title} with ${candidates.length} candidates`);
 
       // Call AI to regenerate predictions
-      const newPredictions = await reanalyzeRace(race.title, candidates);
+      const reanalysis = await reanalyzeRace(race.title, candidates);
+      const newPredictions = reanalysis.predictions;
       console.log(`AI generated predictions:`, Object.keys(newPredictions).length > 0 ? Object.keys(newPredictions) : 'EMPTY');
+
+      const sourceRows: InsertPredictionSource[] = reanalysis.sourceContext.sources.map((source) => ({
+        raceId: race.id,
+        sourceType: source.sourceType,
+        sourceUrl: source.sourceUrl,
+        sourceTitle: source.sourceName,
+        publishedAt: source.publicationDate,
+        retrievedAt: reanalysis.sourceContext.retrievedAt,
+        summary: source.snippet,
+        candidateId: inferCandidateIdFromSourceText(source.sourceName, source.snippet, candidates),
+        factor: inferFactorFromSourceType(source.sourceType),
+      }));
+      const reanalysisSummary = buildReanalysisSummary(sourceRows.length, reanalysis.sourceContext.retrievedAt);
 
       // Update each prediction in the database
       for (const candidate of candidates) {
         const predictionData = newPredictions[candidate.name];
         console.log(`Processing candidate ${candidate.name}:`, predictionData ? 'HAS DATA' : 'NO DATA');
         if (predictionData) {
+          const dataQuality = computePredictionDataQuality(candidate, sourceRows);
           const prediction: Prediction = {
             raceId: race.id,
             candidateId: candidate.id,
             winProbability: predictionData.probability,
-            confidenceInterval: {
-              low: Math.max(0, predictionData.probability - 5),
-              high: Math.min(100, predictionData.probability + 5),
-            },
+            confidenceInterval: buildConfidenceInterval(predictionData.probability, dataQuality.dataQualityScore || 20, 5),
             factors: predictionData.factors,
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered comprehensive prediction model using 8 key factors: Partisan Lean/Demographics (25%), Polling (20%), Candidate Experience (15%), Fundraising (15%), Name Recognition (10%), Endorsements (10%), Issue Alignment (5%), and Momentum (5%).",
-            aiAnalysis: "Updated based on current political landscape and recent developments.",
+            aiAnalysis: `${reanalysisSummary} ${reanalysis.analysis}`.trim(),
+            ...dataQuality,
           };
 
           console.log(`Upserting prediction for ${candidate.name}: ${predictionData.probability}%`);
@@ -391,12 +553,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch updated predictions to return
       const updatedPredictions = await storage.getPredictionsByRace(race.id);
+      await storage.replacePredictionSourcesForRace(race.id, sourceRows);
+      const updatedPredictionSources = await storage.getPredictionSourcesByRace(race.id);
+      const enrichedUpdatedPredictions = enrichPredictionsWithDataQuality(updatedPredictions, candidates, updatedPredictionSources);
       console.log(`Fetched ${updatedPredictions.length} predictions from database`);
+      const reanalyzedAt = new Date().toISOString();
 
       console.log(`Successfully reanalyzed race: ${race.title}`);
       res.json({
         success: true,
-        predictions: updatedPredictions,
+        reanalyzedAt,
+        predictions: enrichedUpdatedPredictions,
+        scorecards: reanalysis.scorecards,
+        analysis: `${reanalysisSummary} ${reanalysis.analysis}`.trim(),
+        summary: reanalysisSummary,
+        predictionSources: updatedPredictionSources,
+        sourceFreshness: {
+          lastCheckedAt: computeLastCheckedAt(updatedPredictionSources),
+          sourceCount: updatedPredictionSources.length,
+          retrievedAt: reanalysis.sourceContext.retrievedAt,
+        },
         message: "Race reanalyzed successfully"
       });
     } catch (error) {
@@ -692,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: "Custom race created via manual candidate entry",
       };
 
-      const customCandidates: Candidate[] = normalizedCandidates.map((c: any) => ({
+      const customCandidates = normalizedCandidates.map((c: any) => ({
         id: randomUUID(),
         name: c.name,
         party: c.party as Party,
@@ -700,6 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const predictions: Prediction[] = customCandidates.map((candidate) => {
         const predData = result.predictions[candidate.name];
+        const dataQuality = computePredictionDataQuality(candidate, []);
 
         if (!predData) {
           console.warn(`No prediction data found for candidate: ${candidate.name}, using defaults`);
@@ -707,7 +884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             raceId: race.id,
             candidateId: candidate.id,
             winProbability: 50,
-            confidenceInterval: { low: 40, high: 60 },
+            confidenceInterval: buildConfidenceInterval(50, dataQuality.dataQualityScore || 20, 10),
             factors: {
               partisanLean: 50,
               polling: 50,
@@ -720,6 +897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             },
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered custom prediction analysis (default values)",
+            ...dataQuality,
           };
         }
 
@@ -727,13 +905,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           raceId: race.id,
           candidateId: candidate.id,
           winProbability: predData.probability,
-          confidenceInterval: {
-            low: Math.max(0, predData.probability - 10),
-            high: Math.min(100, predData.probability + 10),
-          },
+          confidenceInterval: buildConfidenceInterval(predData.probability, dataQuality.dataQualityScore || 20, 10),
           factors: predData.factors,
           lastUpdated: new Date().toISOString(),
           methodology: "AI-powered custom prediction analysis",
+          ...dataQuality,
         };
       });
 
@@ -791,7 +967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `AI-generated analysis from query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`,
       };
 
-      const candidates: Candidate[] = normalizedCandidates.map((c) => ({
+      const candidates = normalizedCandidates.map((c) => ({
         id: randomUUID(),
         name: c.name,
         party: c.party,
@@ -799,6 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const predictions: Prediction[] = candidates.map((candidate) => {
         const predData = result.predictions[candidate.name];
+        const dataQuality = computePredictionDataQuality(candidate, []);
 
         if (!predData) {
           console.warn(`No prediction data found for candidate: ${candidate.name}, using defaults`);
@@ -806,7 +983,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             raceId: race.id,
             candidateId: candidate.id,
             winProbability: 50,
-            confidenceInterval: { low: 40, high: 60 },
+            confidenceInterval: buildConfidenceInterval(50, dataQuality.dataQualityScore || 20, 8),
             factors: {
               partisanLean: 50,
               polling: 50,
@@ -819,6 +996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             },
             lastUpdated: new Date().toISOString(),
             methodology: "AI-powered natural language analysis (default values)",
+            ...dataQuality,
           };
         }
 
@@ -826,13 +1004,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           raceId: race.id,
           candidateId: candidate.id,
           winProbability: predData.probability,
-          confidenceInterval: {
-            low: Math.max(0, predData.probability - 8),
-            high: Math.min(100, predData.probability + 8),
-          },
+          confidenceInterval: buildConfidenceInterval(predData.probability, dataQuality.dataQualityScore || 20, 8),
           factors: predData.factors,
           lastUpdated: new Date().toISOString(),
           methodology: "AI-powered natural language analysis",
+          ...dataQuality,
         };
       });
 

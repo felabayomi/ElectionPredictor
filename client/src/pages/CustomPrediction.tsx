@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
+import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import type { Party, Candidate, Prediction, RaceType } from "@shared/schema";
 import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
@@ -76,11 +77,13 @@ export default function CustomPrediction() {
       console.error("Custom prediction error:", error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to generate prediction. Please try again.",
+        description: getErrorMessage(error, "Failed to generate prediction. Please try again."),
         variant: "destructive",
       });
     },
   });
+
+  const analysisErrorMessage = getErrorMessage(analyzeMutation.error, "Analysis failed");
 
   const updateCandidate = (index: number, field: keyof CustomCandidate, value: string) => {
     const updated = [...candidates];
@@ -239,7 +242,7 @@ export default function CustomPrediction() {
 
             {analyzeMutation.isError && (
               <p className="text-sm text-destructive mt-2">
-                {analyzeMutation.error instanceof Error ? analyzeMutation.error.message : "Analysis failed"}
+                {analysisErrorMessage}
               </p>
             )}
           </CardContent>

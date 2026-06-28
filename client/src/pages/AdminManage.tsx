@@ -12,10 +12,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ReanalysisAuditPanel, type ReanalysisAuditData } from "@/components/admin/ReanalysisAuditPanel";
 import AdminWatermark from "@/components/AdminWatermark";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft, Users, Pencil, RefreshCw } from "lucide-react";
-import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate } from "@shared/schema";
+import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate, Prediction } from "@shared/schema";
 import { insertCandidateSchema } from "@shared/schema";
 import { useState } from "react";
 import { Link } from "wouter";
@@ -24,8 +26,39 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 interface RaceWithData {
   race: Race;
-  candidates: any[];
-  predictions: any[];
+  candidates: Candidate[];
+  predictions: Prediction[];
+  lastCheckedAt?: string;
+}
+
+interface ReanalysisResponse {
+  reanalyzedAt: string;
+  summary?: string;
+  analysis?: string;
+  scorecards?: ReanalysisAuditData["scorecards"];
+  predictionSources?: ReanalysisAuditData["predictionSources"];
+  sourceFreshness?: ReanalysisAuditData["sourceFreshness"];
+}
+
+function parseStringList(value: string): string[] | undefined {
+  const items = value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+  return items.length > 0 ? items : undefined;
+}
+
+function parseNumberList(value: string): number[] | undefined {
+  const items = value
+    .split(/\r?\n|,/)
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item));
+  return items.length > 0 ? items : undefined;
+}
+
+function formatStringList(value?: string[]): string {
+  return Array.isArray(value) ? value.join("\n") : "";
+}
+
+function formatNumberList(value?: number[]): string {
+  return Array.isArray(value) ? value.join(", ") : "";
 }
 
 export default function AdminManage() {
@@ -50,6 +83,7 @@ export default function AdminManage() {
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
   const [reanalyzingRaceId, setReanalyzingRaceId] = useState<string | null>(null);
+  const [lastReanalysisAudit, setLastReanalysisAudit] = useState<ReanalysisAuditData | null>(null);
 
   const form = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
@@ -57,6 +91,9 @@ export default function AdminManage() {
       name: "",
       party: "Democratic",
       photoUrl: "",
+      endorsementsList: [],
+      priorElectionResults: [],
+      recentPolls: [],
     },
   });
 
@@ -66,6 +103,9 @@ export default function AdminManage() {
       name: "",
       party: "Democratic",
       photoUrl: "",
+      endorsementsList: [],
+      priorElectionResults: [],
+      recentPolls: [],
     },
   });
 
@@ -98,10 +138,10 @@ export default function AdminManage() {
       setSelectedRaceId("");
       toast({ title: "Featured matchup created successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to create matchup",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -115,10 +155,10 @@ export default function AdminManage() {
       queryClient.invalidateQueries({ queryKey: ["/api/featured-matchups"] });
       toast({ title: "Featured matchup deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to delete matchup",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -190,10 +230,10 @@ export default function AdminManage() {
         description: "Note: This race won't appear in suggestions until you add candidates to it."
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to create race",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -207,10 +247,10 @@ export default function AdminManage() {
       queryClient.invalidateQueries({ queryKey: ["/api/races"] });
       toast({ title: "Race deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to delete race",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -219,21 +259,27 @@ export default function AdminManage() {
   const reanalyzeRaceMutation = useMutation({
     mutationFn: async (id: string) => {
       setReanalyzingRaceId(id);
-      return apiRequest("POST", `/api/admin/races/${id}/reanalyze`, {});
+      return apiRequest<ReanalysisResponse>("POST", `/api/admin/races/${id}/reanalyze`, {});
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/races"], exact: true });
+      await queryClient.invalidateQueries({
+        predicate: (query) => Array.isArray(query.queryKey)
+          && query.queryKey[0] === "/api/races"
+          && query.queryKey.length > 1,
+      });
       setReanalyzingRaceId(null);
+      setLastReanalysisAudit(result);
       toast({
         title: "Race reanalyzed successfully",
-        description: "Predictions updated based on current candidates"
+        description: result.summary || "Updated using stored candidate data only."
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setReanalyzingRaceId(null);
       toast({
         title: "Failed to reanalyze race",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -249,8 +295,8 @@ export default function AdminManage() {
       form.reset();
       toast({ title: "Candidate added successfully" });
     },
-    onError: (error: any) => {
-      toast({ title: "Failed to add candidate", description: error.message, variant: "destructive" });
+    onError: (error: unknown) => {
+      toast({ title: "Failed to add candidate", description: getErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -265,8 +311,8 @@ export default function AdminManage() {
       editForm.reset();
       toast({ title: "Candidate updated successfully" });
     },
-    onError: (error: any) => {
-      toast({ title: "Failed to update candidate", description: error.message, variant: "destructive" });
+    onError: (error: unknown) => {
+      toast({ title: "Failed to update candidate", description: getErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -280,8 +326,8 @@ export default function AdminManage() {
       setDeletingCandidateId(null);
       toast({ title: "Candidate deleted successfully" });
     },
-    onError: (error: any) => {
-      toast({ title: "Failed to delete candidate", description: error.message, variant: "destructive" });
+    onError: (error: unknown) => {
+      toast({ title: "Failed to delete candidate", description: getErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -312,6 +358,12 @@ export default function AdminManage() {
         <h1 className="text-3xl font-bold mb-2">Manage Featured Matchups</h1>
         <p className="text-muted-foreground">Create and curate featured matchups for the homepage</p>
       </div>
+
+      {lastReanalysisAudit && (
+        <div className="mb-8">
+          <ReanalysisAuditPanel audit={lastReanalysisAudit} />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
@@ -577,6 +629,20 @@ export default function AdminManage() {
                                 name: candidate.name,
                                 party: candidate.party as "Democratic" | "Republican" | "Independent",
                                 photoUrl: candidate.photoUrl || "",
+                                pollingAverage: candidate.pollingAverage,
+                                fundraisingTotal: candidate.fundraisingTotal,
+                                isIncumbent: candidate.isIncumbent,
+                                yearsExperience: candidate.yearsExperience,
+                                recentPolls: candidate.recentPolls,
+                                pollDate: candidate.pollDate,
+                                pollsterGrade: candidate.pollsterGrade,
+                                cashOnHand: candidate.cashOnHand,
+                                fundraisingQuarter: candidate.fundraisingQuarter,
+                                endorsementsList: candidate.endorsementsList,
+                                incumbentOffice: candidate.incumbentOffice,
+                                priorElectionResults: candidate.priorElectionResults,
+                                districtPartisanLean: candidate.districtPartisanLean,
+                                electionType: candidate.electionType,
                               });
                             }}
                           >
@@ -761,6 +827,110 @@ export default function AdminManage() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="recentPolls"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Recent Polls (comma-separated, Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="46, 48, 45"
+                            value={formatNumberList(field.value)}
+                            onChange={(e) => field.onChange(parseNumberList(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField control={form.control} name="pollDate" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Poll Date (Optional)</FormLabel>
+                      <FormControl><Input type="date" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="pollsterGrade" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pollster Grade (Optional)</FormLabel>
+                      <FormControl><Input placeholder="A-, B+" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="cashOnHand" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cash On Hand (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="2500000" {...field} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="fundraisingQuarter" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fundraising Quarter (Optional)</FormLabel>
+                      <FormControl><Input placeholder="2026-Q2" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="endorsementsList" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endorsements List (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="One endorsement per line" value={formatStringList(field.value)} onChange={(e) => field.onChange(parseStringList(e.target.value))} rows={3} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="incumbentOffice" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Incumbent Office (Optional)</FormLabel>
+                      <FormControl><Input placeholder="Governor, U.S. Senator" {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="priorElectionResults" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prior Election Results (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="2022 House: won 51.2%-48.8%" value={formatStringList(field.value)} onChange={(e) => field.onChange(parseStringList(e.target.value))} rows={3} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="districtPartisanLean" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>District Partisan Lean (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="5 for D+5, -3 for R+3" {...field} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="electionType" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Election Type (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="Primary">Primary</SelectItem>
+                          <SelectItem value="General">General</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
                   <Button
                     type="submit"
@@ -955,6 +1125,92 @@ export default function AdminManage() {
                   </FormItem>
                 )}
               />
+
+              <FormField control={editForm.control} name="recentPolls" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Recent Polls (comma-separated, Optional)</FormLabel>
+                  <FormControl><Input placeholder="46, 48, 45" value={formatNumberList(field.value)} onChange={(e) => field.onChange(parseNumberList(e.target.value))} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="pollDate" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Poll Date (Optional)</FormLabel>
+                  <FormControl><Input type="date" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="pollsterGrade" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pollster Grade (Optional)</FormLabel>
+                  <FormControl><Input placeholder="A-, B+" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="cashOnHand" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cash On Hand (Optional)</FormLabel>
+                  <FormControl><Input type="number" placeholder="2500000" {...field} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="fundraisingQuarter" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fundraising Quarter (Optional)</FormLabel>
+                  <FormControl><Input placeholder="2026-Q2" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="endorsementsList" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Endorsements List (Optional)</FormLabel>
+                  <FormControl><Textarea placeholder="One endorsement per line" value={formatStringList(field.value)} onChange={(e) => field.onChange(parseStringList(e.target.value))} rows={3} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="incumbentOffice" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Incumbent Office (Optional)</FormLabel>
+                  <FormControl><Input placeholder="Governor, U.S. Senator" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="priorElectionResults" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prior Election Results (Optional)</FormLabel>
+                  <FormControl><Textarea placeholder="2022 House: won 51.2%-48.8%" value={formatStringList(field.value)} onChange={(e) => field.onChange(parseStringList(e.target.value))} rows={3} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="districtPartisanLean" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>District Partisan Lean (Optional)</FormLabel>
+                  <FormControl><Input type="number" placeholder="5 for D+5, -3 for R+3" {...field} onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={editForm.control} name="electionType" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Election Type (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="Primary">Primary</SelectItem>
+                      <SelectItem value="General">General</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
 
               <div className="flex gap-3">
                 <Button

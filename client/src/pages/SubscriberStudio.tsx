@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { apiRequest, SUBSCRIBER_EMAIL_STORAGE_KEY } from "@/lib/queryClient";
+import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { ArrowLeft, Loader2, ShieldCheck, TriangleAlert, Zap } from "lucide-react";
@@ -81,7 +82,7 @@ export default function SubscriberStudio() {
         onError: (error) => {
             toast({
                 title: "Unable to start checkout",
-                description: error instanceof Error ? error.message : "Please try again.",
+                description: getErrorMessage(error, "Please try again."),
                 variant: "destructive",
             });
         },
@@ -107,7 +108,7 @@ export default function SubscriberStudio() {
         onError: (error) => {
             toast({
                 title: "Unable to open billing portal",
-                description: error instanceof Error ? error.message : "Please try again.",
+                description: getErrorMessage(error, "Please try again."),
                 variant: "destructive",
             });
         },

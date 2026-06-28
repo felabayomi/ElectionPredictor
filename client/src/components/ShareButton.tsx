@@ -8,6 +8,7 @@ import {
 import { Share2 } from "lucide-react";
 import { SiX, SiFacebook, SiLinkedin } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
 
 interface ShareButtonProps {
   title: string;
@@ -19,9 +20,14 @@ interface ShareButtonProps {
 
 export function ShareButton({ title, text, url, variant = "outline", size = "sm" }: ShareButtonProps) {
   const { toast } = useToast();
+  const [canNativeShare, setCanNativeShare] = useState(false);
+
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
 
   const handleNativeShare = async () => {
-    if (navigator.share) {
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({
           title,
@@ -52,12 +58,25 @@ export function ShareButton({ title, text, url, variant = "outline", size = "sm"
     window.open(shareUrl, "_blank", "width=600,height=400");
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(url);
-    toast({ title: "Link copied to clipboard!" });
+  const copyLink = async () => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied to clipboard!" });
+    } catch (err) {
+      console.error("Copy link failed:", err);
+      toast({
+        title: "Could not copy link",
+        description: "Please copy the URL manually.",
+        variant: "destructive",
+      });
+    }
   };
 
-  if (navigator.share) {
+  if (canNativeShare) {
     return (
       <Button
         variant={variant}

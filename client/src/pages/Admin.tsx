@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 import { Trash2, Plus, TrendingUp, Eye, Calendar, Users, Pencil } from "lucide-react";
-import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate } from "@shared/schema";
+import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate, Prediction } from "@shared/schema";
 import { insertCandidateSchema } from "@shared/schema";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -22,8 +23,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 interface RaceWithData {
   race: Race;
-  candidates: any[];
-  predictions: any[];
+  candidates: Candidate[];
+  predictions: Prediction[];
 }
 
 function getInitials(name: string): string {
@@ -40,7 +41,7 @@ export default function Admin() {
   const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
-  
+
   const form = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
@@ -49,7 +50,7 @@ export default function Admin() {
       photoUrl: "",
     },
   });
-  
+
   const editForm = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
@@ -70,7 +71,7 @@ export default function Admin() {
   const { data: racesData = [] } = useQuery<RaceWithData[]>({
     queryKey: ["/api/races"],
   });
-  
+
   const { data: raceCandidates = [], isLoading: loadingCandidates } = useQuery<Candidate[]>({
     queryKey: ["/api/admin/races", managingRaceId, "candidates"],
     enabled: !!managingRaceId,
@@ -85,11 +86,11 @@ export default function Admin() {
       setNewMatchup({ title: "", description: "", url: "" });
       toast({ title: "Featured matchup created successfully" });
     },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to create matchup", 
-        description: error.message,
-        variant: "destructive" 
+    onError: (error: unknown) => {
+      toast({
+        title: "Failed to create matchup",
+        description: getErrorMessage(error),
+        variant: "destructive"
       });
     },
   });
@@ -102,11 +103,11 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/featured-matchups"] });
       toast({ title: "Featured matchup deleted successfully" });
     },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to delete matchup", 
-        description: error.message,
-        variant: "destructive" 
+    onError: (error: unknown) => {
+      toast({
+        title: "Failed to delete matchup",
+        description: getErrorMessage(error),
+        variant: "destructive"
       });
     },
   });
@@ -119,15 +120,15 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/races"] });
       toast({ title: "Race deleted successfully" });
     },
-    onError: (error: any) => {
-      toast({ 
-        title: "Failed to delete race", 
-        description: error.message,
-        variant: "destructive" 
+    onError: (error: unknown) => {
+      toast({
+        title: "Failed to delete race",
+        description: getErrorMessage(error),
+        variant: "destructive"
       });
     },
   });
-  
+
   const addCandidateMutation = useMutation({
     mutationFn: async (data: InsertCandidate) => {
       return await apiRequest<Candidate>("POST", `/api/admin/races/${managingRaceId}/candidates`, data);
@@ -142,7 +143,7 @@ export default function Admin() {
       toast({ title: "Failed to add candidate", variant: "destructive" });
     },
   });
-  
+
   const updateCandidateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCandidate> }) => {
       return await apiRequest<Candidate>("PUT", `/api/admin/candidates/${id}`, data);
@@ -157,7 +158,7 @@ export default function Admin() {
       toast({ title: "Failed to update candidate", variant: "destructive" });
     },
   });
-  
+
   const deleteCandidateMutation = useMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/admin/candidates/${id}`);
@@ -176,25 +177,25 @@ export default function Admin() {
   const handleCreateFromSuggestion = (suggestion: SuggestedMatchup) => {
     const candidateNames = suggestion.candidates.map(c => c.name).join(" vs ");
     const url = `/races/${suggestion.race.id}`;
-    
+
     setNewMatchup({
       title: candidateNames,
       description: `${suggestion.race.title} - ${suggestion.reason}`,
       url,
     });
 
-    toast({ 
-      title: "Suggestion loaded", 
-      description: "Review and create the featured matchup below" 
+    toast({
+      title: "Suggestion loaded",
+      description: "Review and create the featured matchup below"
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMatchup.title.trim() || !newMatchup.description.trim() || !newMatchup.url.trim()) {
-      toast({ 
-        title: "All fields are required", 
-        variant: "destructive" 
+      toast({
+        title: "All fields are required",
+        variant: "destructive"
       });
       return;
     }
@@ -248,8 +249,8 @@ export default function Admin() {
                     onChange={(e) => setNewMatchup({ ...newMatchup, url: e.target.value })}
                   />
                 </div>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
                   data-testid="button-create-matchup"
                   disabled={createMutation.isPending}
@@ -319,7 +320,7 @@ export default function Admin() {
                   const candidateNames = suggestion.candidates.map(c => c.name).join(" vs ");
                   const topPrediction = suggestion.predictions[0];
                   const margin = Math.abs(
-                    suggestion.predictions[0].winProbability - 
+                    suggestion.predictions[0].winProbability -
                     suggestion.predictions[1].winProbability
                   );
 
@@ -426,7 +427,7 @@ export default function Admin() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Manage Candidates Dialog */}
       <Dialog open={!!managingRaceId} onOpenChange={(open) => {
         if (!open) {
@@ -441,7 +442,7 @@ export default function Admin() {
               Add, edit, or remove candidates for this race
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Existing Candidates List */}
             {loadingCandidates ? (
@@ -493,7 +494,7 @@ export default function Admin() {
                 <div className="border-t pt-4" />
               </>
             ) : null}
-            
+
             {/* Add New Candidate Form */}
             <div>
               <h4 className="text-sm font-medium mb-3">Add New Candidate</h4>
@@ -514,7 +515,7 @@ export default function Admin() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="party"
@@ -537,7 +538,7 @@ export default function Admin() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="photoUrl"
@@ -551,7 +552,7 @@ export default function Admin() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="flex gap-3">
                     <Button
                       type="button"
@@ -564,8 +565,8 @@ export default function Admin() {
                     >
                       Done
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className="flex-1"
                       data-testid="button-add-candidate"
                       disabled={addCandidateMutation.isPending}
@@ -579,7 +580,7 @@ export default function Admin() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Edit Candidate Dialog */}
       <Dialog open={!!editingCandidate} onOpenChange={(open) => {
         if (!open) {
@@ -594,7 +595,7 @@ export default function Admin() {
               Update candidate information
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit((data) => {
               if (editingCandidate) {
@@ -614,7 +615,7 @@ export default function Admin() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="party"
@@ -637,7 +638,7 @@ export default function Admin() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="photoUrl"
@@ -651,7 +652,7 @@ export default function Admin() {
                   </FormItem>
                 )}
               />
-              
+
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -664,8 +665,8 @@ export default function Admin() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="flex-1"
                   data-testid="button-update-candidate"
                   disabled={updateCandidateMutation.isPending}
@@ -677,7 +678,7 @@ export default function Admin() {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Candidate Confirmation */}
       <AlertDialog open={!!deletingCandidateId} onOpenChange={(open) => {
         if (!open) setDeletingCandidateId(null);

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RaceCard } from "@/components/RaceCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
 import { ShareButton } from "@/components/ShareButton";
@@ -17,6 +17,7 @@ interface RaceWithPredictions {
   race: Race;
   candidates: Candidate[];
   predictions: Prediction[];
+  lastCheckedAt?: string;
 }
 
 export default function Dashboard() {
@@ -52,6 +53,24 @@ export default function Dashboard() {
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
     return filteredRaces;
+  };
+
+  const tabValueByRaceType: Record<RaceType | "All", string> = {
+    All: "all",
+    Presidential: "presidential",
+    Senate: "senate",
+    House: "house",
+    Governor: "governor",
+    Local: "local",
+  };
+
+  const raceTypeByTabValue: Record<string, RaceType | "All"> = {
+    all: "All",
+    presidential: "Presidential",
+    senate: "Senate",
+    house: "House",
+    governor: "Governor",
+    local: "Local",
   };
 
   return (
@@ -103,28 +122,28 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <Tabs defaultValue="all" className="mb-8">
+        <Tabs
+          value={tabValueByRaceType[selectedRaceType]}
+          onValueChange={(value) => setSelectedRaceType(raceTypeByTabValue[value] || "All")}
+          className="mb-8"
+        >
           <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-6">
-            <TabsTrigger value="all" onClick={() => setSelectedRaceType("All")} data-testid="tab-all">
+            <TabsTrigger value="all" data-testid="tab-all">
               All Races
             </TabsTrigger>
-            <TabsTrigger
-              value="presidential"
-              onClick={() => setSelectedRaceType("Presidential")}
-              data-testid="tab-presidential"
-            >
+            <TabsTrigger value="presidential" data-testid="tab-presidential">
               Presidential
             </TabsTrigger>
-            <TabsTrigger value="senate" onClick={() => setSelectedRaceType("Senate")} data-testid="tab-senate">
+            <TabsTrigger value="senate" data-testid="tab-senate">
               Senate
             </TabsTrigger>
-            <TabsTrigger value="house" onClick={() => setSelectedRaceType("House")} data-testid="tab-house">
+            <TabsTrigger value="house" data-testid="tab-house">
               House
             </TabsTrigger>
-            <TabsTrigger value="governor" onClick={() => setSelectedRaceType("Governor")} data-testid="tab-governor">
+            <TabsTrigger value="governor" data-testid="tab-governor">
               Governor
             </TabsTrigger>
-            <TabsTrigger value="local" onClick={() => setSelectedRaceType("Local")} data-testid="tab-local">
+            <TabsTrigger value="local" data-testid="tab-local">
               Local
             </TabsTrigger>
           </TabsList>
@@ -226,7 +245,7 @@ export default function Dashboard() {
             </div>
             {filteredRaces && filteredRaces.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {getFeaturedRaces().map(({ race, candidates, predictions }) => {
+                {getFeaturedRaces().map(({ race, candidates, predictions, lastCheckedAt }) => {
                   const candidatesWithPredictions = predictions
                     .map((pred) => ({
                       prediction: pred,
@@ -247,7 +266,10 @@ export default function Dashboard() {
                       race={race}
                       leadingCandidate={leadingItem?.candidate?.name}
                       leadingProbability={leadingItem?.prediction?.winProbability}
+                      leadingDataQualityScore={leadingItem?.prediction?.dataQualityScore}
+                      hasRecentPolling={leadingItem?.prediction?.hasRecentPolling}
                       candidateCount={candidates.length}
+                      lastCheckedAt={lastCheckedAt}
                     />
                   );
                 })}

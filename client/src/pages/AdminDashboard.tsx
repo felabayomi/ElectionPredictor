@@ -15,8 +15,10 @@ import { Input } from "@/components/ui/input";
 import { RaceCard } from "@/components/RaceCard";
 import { CandidateCard } from "@/components/CandidateCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
+import { ReanalysisAuditPanel, type ReanalysisAuditData } from "@/components/admin/ReanalysisAuditPanel";
 import AdminWatermark from "@/components/AdminWatermark";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getErrorMessage } from "@/lib/errors";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup, Party, InsertCandidate } from "@shared/schema";
 import { insertCandidateSchema } from "@shared/schema";
 import { Link } from "wouter";
@@ -28,6 +30,16 @@ interface RaceWithPredictions {
   race: Race;
   candidates: Candidate[];
   predictions: Prediction[];
+  lastCheckedAt?: string;
+}
+
+interface ReanalysisResponse {
+  reanalyzedAt: string;
+  summary?: string;
+  analysis?: string;
+  scorecards?: ReanalysisAuditData["scorecards"];
+  predictionSources?: ReanalysisAuditData["predictionSources"];
+  sourceFreshness?: ReanalysisAuditData["sourceFreshness"];
 }
 
 function getInitials(name: string): string {
@@ -44,6 +56,7 @@ export default function AdminDashboard() {
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
   const [editingMatchup, setEditingMatchup] = useState<FeaturedMatchup | null>(null);
   const [deletingMatchupId, setDeletingMatchupId] = useState<string | null>(null);
+  const [lastReanalysisAudit, setLastReanalysisAudit] = useState<ReanalysisAuditData | null>(null);
   const { toast } = useToast();
 
   const form = useForm<InsertCandidate>({
@@ -85,10 +98,10 @@ export default function AdminDashboard() {
       await queryClient.invalidateQueries({ queryKey: ["/api/races"] });
       toast({ title: "Race updated successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to update race",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -97,21 +110,27 @@ export default function AdminDashboard() {
   const reanalyzeRaceMutation = useMutation({
     mutationFn: async (id: string) => {
       setReanalyzingRaceId(id);
-      return apiRequest("POST", `/api/admin/races/${id}/reanalyze`, {});
+      return apiRequest<ReanalysisResponse>("POST", `/api/admin/races/${id}/reanalyze`, {});
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/races"], exact: true });
+      await queryClient.invalidateQueries({
+        predicate: (query) => Array.isArray(query.queryKey)
+          && query.queryKey[0] === "/api/races"
+          && query.queryKey.length > 1,
+      });
       setReanalyzingRaceId(null);
+      setLastReanalysisAudit(result);
       toast({
         title: "Race reanalyzed successfully",
-        description: "Predictions updated based on current political landscape"
+        description: result.summary || "Updated using stored candidate data only."
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setReanalyzingRaceId(null);
       toast({
         title: "Failed to reanalyze race",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -125,10 +144,10 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/races"] });
       toast({ title: "Race deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to delete race",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -188,10 +207,10 @@ export default function AdminDashboard() {
       setEditingMatchup(null);
       toast({ title: "Featured matchup updated successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to update matchup",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -206,10 +225,10 @@ export default function AdminDashboard() {
       setDeletingMatchupId(null);
       toast({ title: "Featured matchup deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Failed to delete matchup",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     },
@@ -286,6 +305,12 @@ export default function AdminDashboard() {
             Comprehensive analysis of upcoming elections powered by AI and public data
           </p>
         </div>
+
+        {lastReanalysisAudit && (
+          <div className="mb-8">
+            <ReanalysisAuditPanel audit={lastReanalysisAudit} />
+          </div>
+        )}
 
         <Tabs defaultValue="all" className="mb-8">
           <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-6">
@@ -428,7 +453,7 @@ export default function AdminDashboard() {
               </h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {getFeaturedRaces().map(({ race, candidates, predictions }) => {
+              {getFeaturedRaces().map(({ race, candidates, predictions, lastCheckedAt }) => {
                 const candidatesWithPredictions = predictions
                   .map((pred) => ({
                     prediction: pred,
@@ -449,7 +474,10 @@ export default function AdminDashboard() {
                     race={race}
                     leadingCandidate={leadingItem?.candidate?.name}
                     leadingProbability={leadingItem?.prediction?.winProbability}
+                    leadingDataQualityScore={leadingItem?.prediction?.dataQualityScore}
+                    hasRecentPolling={leadingItem?.prediction?.hasRecentPolling}
                     candidateCount={candidates.length}
+                    lastCheckedAt={lastCheckedAt}
                     onEdit={(id, title, raceType) => updateRaceMutation.mutate({ id, title, raceType })}
                     editDisabled={updateRaceMutation.isPending}
                     onManageCandidates={(id) => setManagingRaceId(id)}

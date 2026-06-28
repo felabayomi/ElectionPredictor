@@ -7,6 +7,11 @@ interface ProbabilityBarProps {
   className?: string;
 }
 
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, value));
+}
+
 export function ProbabilityBar({ probability, party, confidenceInterval, className = "" }: ProbabilityBarProps) {
   const partyColors = {
     Democratic: "bg-democrat",
@@ -20,33 +25,38 @@ export function ProbabilityBar({ probability, party, confidenceInterval, classNa
     Independent: "bg-independent/20",
   };
 
+  const safeProbability = clampPercent(probability);
+  const safeLow = confidenceInterval ? clampPercent(confidenceInterval.low) : null;
+  const safeHighRaw = confidenceInterval ? clampPercent(confidenceInterval.high) : null;
+  const safeHigh = safeLow != null && safeHighRaw != null ? Math.max(safeLow, safeHighRaw) : null;
+
   return (
     <div className={`space-y-1 ${className}`}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">Win Probability</span>
         <span className="font-mono text-2xl font-bold" data-testid="text-probability">
-          {probability.toFixed(1)}%
+          {safeProbability.toFixed(1)}%
         </span>
       </div>
       <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
-        {confidenceInterval && (
+        {safeLow != null && safeHigh != null && (
           <div
             className={`absolute h-full ${partyLightColors[party]}`}
             style={{
-              left: `${confidenceInterval.low}%`,
-              width: `${confidenceInterval.high - confidenceInterval.low}%`,
+              left: `${safeLow}%`,
+              width: `${safeHigh - safeLow}%`,
             }}
           />
         )}
         <div
           className={`h-full ${partyColors[party]} transition-all duration-500`}
-          style={{ width: `${probability}%` }}
+          style={{ width: `${safeProbability}%` }}
         />
       </div>
-      {confidenceInterval && (
+      {safeLow != null && safeHigh != null && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>CI: {confidenceInterval.low.toFixed(1)}%</span>
-          <span>{confidenceInterval.high.toFixed(1)}%</span>
+          <span>CI: {safeLow.toFixed(1)}%</span>
+          <span>{safeHigh.toFixed(1)}%</span>
         </div>
       )}
     </div>

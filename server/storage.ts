@@ -10,6 +10,8 @@ import type {
   Party,
   FeaturedMatchup,
   InsertFeaturedMatchup,
+  PredictionSource,
+  InsertPredictionSource,
   SubscriberSubscription,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -38,6 +40,8 @@ export interface IStorage {
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
   createPrediction(prediction: Prediction): Promise<void>;
   updatePrediction(prediction: Prediction): Promise<void>;
+  getPredictionSourcesByRace(raceId: string): Promise<PredictionSource[]>;
+  replacePredictionSourcesForRace(raceId: string, sources: InsertPredictionSource[]): Promise<void>;
 
   getAllFeaturedMatchups(): Promise<FeaturedMatchup[]>;
   createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup>;
@@ -60,6 +64,33 @@ export class DbStorage implements IStorage {
 
   constructor(db: any) {
     this.db = db;
+  }
+
+  private mapCandidateRecord(record: any): Candidate {
+    return {
+      id: record.id,
+      name: record.name,
+      party: record.party as Party,
+      photoUrl: record.photoUrl || undefined,
+      position: record.position || undefined,
+      district: record.district || undefined,
+      state: record.state || undefined,
+      pollingAverage: record.pollingAverage || undefined,
+      fundraisingTotal: record.fundraisingTotal || undefined,
+      isIncumbent: record.isIncumbent || undefined,
+      yearsExperience: record.yearsExperience || undefined,
+      majorEndorsements: record.majorEndorsements || undefined,
+      recentPolls: record.recentPolls || undefined,
+      pollDate: record.pollDate || undefined,
+      pollsterGrade: record.pollsterGrade || undefined,
+      cashOnHand: record.cashOnHand || undefined,
+      fundraisingQuarter: record.fundraisingQuarter || undefined,
+      endorsementsList: record.endorsementsList || undefined,
+      incumbentOffice: record.incumbentOffice || undefined,
+      priorElectionResults: record.priorElectionResults || undefined,
+      districtPartisanLean: record.districtPartisanLean || undefined,
+      electionType: record.electionType || undefined,
+    };
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -85,20 +116,7 @@ export class DbStorage implements IStorage {
   async getAllCandidates(): Promise<Candidate[]> {
     const { candidates } = await import("@shared/schema");
     const results = await this.db.select().from(candidates);
-    return results.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      party: r.party as Party,
-      photoUrl: r.photoUrl || undefined,
-      position: r.position || undefined,
-      district: r.district || undefined,
-      state: r.state || undefined,
-      pollingAverage: r.pollingAverage || undefined,
-      fundraisingTotal: r.fundraisingTotal || undefined,
-      isIncumbent: r.isIncumbent || undefined,
-      yearsExperience: r.yearsExperience || undefined,
-      majorEndorsements: r.majorEndorsements || undefined,
-    }));
+    return results.map((r: any) => this.mapCandidateRecord(r));
   }
 
   async getCandidate(id: string): Promise<Candidate | undefined> {
@@ -106,21 +124,7 @@ export class DbStorage implements IStorage {
     const { eq } = await import("drizzle-orm");
     const result = await this.db.select().from(candidates).where(eq(candidates.id, id)).limit(1);
     if (!result[0]) return undefined;
-    const r = result[0];
-    return {
-      id: r.id,
-      name: r.name,
-      party: r.party as Party,
-      photoUrl: r.photoUrl || undefined,
-      position: r.position || undefined,
-      district: r.district || undefined,
-      state: r.state || undefined,
-      pollingAverage: r.pollingAverage || undefined,
-      fundraisingTotal: r.fundraisingTotal || undefined,
-      isIncumbent: r.isIncumbent || undefined,
-      yearsExperience: r.yearsExperience || undefined,
-      majorEndorsements: r.majorEndorsements || undefined,
-    };
+    return this.mapCandidateRecord(result[0]);
   }
 
   async getCandidatesByRace(raceId: string): Promise<Candidate[]> {
@@ -140,25 +144,21 @@ export class DbStorage implements IStorage {
         isIncumbent: candidates.isIncumbent,
         yearsExperience: candidates.yearsExperience,
         majorEndorsements: candidates.majorEndorsements,
+        recentPolls: candidates.recentPolls,
+        pollDate: candidates.pollDate,
+        pollsterGrade: candidates.pollsterGrade,
+        cashOnHand: candidates.cashOnHand,
+        fundraisingQuarter: candidates.fundraisingQuarter,
+        endorsementsList: candidates.endorsementsList,
+        incumbentOffice: candidates.incumbentOffice,
+        priorElectionResults: candidates.priorElectionResults,
+        districtPartisanLean: candidates.districtPartisanLean,
+        electionType: candidates.electionType,
       })
       .from(raceCandidates)
       .innerJoin(candidates, eq(raceCandidates.candidateId, candidates.id))
       .where(eq(raceCandidates.raceId, raceId));
-
-    return results.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      party: r.party as Party,
-      photoUrl: r.photoUrl || undefined,
-      position: r.position || undefined,
-      district: r.district || undefined,
-      state: r.state || undefined,
-      pollingAverage: r.pollingAverage || undefined,
-      fundraisingTotal: r.fundraisingTotal || undefined,
-      isIncumbent: r.isIncumbent || undefined,
-      yearsExperience: r.yearsExperience || undefined,
-      majorEndorsements: r.majorEndorsements || undefined,
-    }));
+    return results.map((r: any) => this.mapCandidateRecord(r));
   }
 
   async getNYSenateCandidates(): Promise<Candidate[]> {
@@ -178,26 +178,22 @@ export class DbStorage implements IStorage {
         isIncumbent: candidates.isIncumbent,
         yearsExperience: candidates.yearsExperience,
         majorEndorsements: candidates.majorEndorsements,
+        recentPolls: candidates.recentPolls,
+        pollDate: candidates.pollDate,
+        pollsterGrade: candidates.pollsterGrade,
+        cashOnHand: candidates.cashOnHand,
+        fundraisingQuarter: candidates.fundraisingQuarter,
+        endorsementsList: candidates.endorsementsList,
+        incumbentOffice: candidates.incumbentOffice,
+        priorElectionResults: candidates.priorElectionResults,
+        districtPartisanLean: candidates.districtPartisanLean,
+        electionType: candidates.electionType,
       })
       .from(raceCandidates)
       .innerJoin(candidates, eq(raceCandidates.candidateId, candidates.id))
       .innerJoin(races, eq(raceCandidates.raceId, races.id))
       .where(and(eq(races.type, "Senate"), eq(races.state, "New York")));
-
-    return results.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      party: r.party as Party,
-      photoUrl: r.photoUrl || undefined,
-      position: r.position || undefined,
-      district: r.district || undefined,
-      state: r.state || undefined,
-      pollingAverage: r.pollingAverage || undefined,
-      fundraisingTotal: r.fundraisingTotal || undefined,
-      isIncumbent: r.isIncumbent || undefined,
-      yearsExperience: r.yearsExperience || undefined,
-      majorEndorsements: r.majorEndorsements || undefined,
-    }));
+    return results.map((r: any) => this.mapCandidateRecord(r));
   }
 
   async createCandidate(insertCandidate: InsertCandidate, raceId: string): Promise<Candidate> {
@@ -210,20 +206,7 @@ export class DbStorage implements IStorage {
       candidateId: candidate.id,
     });
 
-    return {
-      id: candidate.id,
-      name: candidate.name,
-      party: candidate.party as Party,
-      photoUrl: candidate.photoUrl || undefined,
-      position: candidate.position || undefined,
-      district: candidate.district || undefined,
-      state: candidate.state || undefined,
-      pollingAverage: candidate.pollingAverage || undefined,
-      fundraisingTotal: candidate.fundraisingTotal || undefined,
-      isIncumbent: candidate.isIncumbent || undefined,
-      yearsExperience: candidate.yearsExperience || undefined,
-      majorEndorsements: candidate.majorEndorsements || undefined,
-    };
+    return this.mapCandidateRecord(candidate);
   }
 
   async updateCandidate(id: string, updates: Partial<InsertCandidate>): Promise<Candidate> {
@@ -234,21 +217,7 @@ export class DbStorage implements IStorage {
       .set(updates)
       .where(eq(candidates.id, id))
       .returning();
-    const r = result[0];
-    return {
-      id: r.id,
-      name: r.name,
-      party: r.party as Party,
-      photoUrl: r.photoUrl || undefined,
-      position: r.position || undefined,
-      district: r.district || undefined,
-      state: r.state || undefined,
-      pollingAverage: r.pollingAverage || undefined,
-      fundraisingTotal: r.fundraisingTotal || undefined,
-      isIncumbent: r.isIncumbent || undefined,
-      yearsExperience: r.yearsExperience || undefined,
-      majorEndorsements: r.majorEndorsements || undefined,
-    };
+    return this.mapCandidateRecord(result[0]);
   }
 
   async deleteCandidate(id: string): Promise<void> {
@@ -396,6 +365,7 @@ export class DbStorage implements IStorage {
 
   async createPrediction(prediction: Prediction): Promise<void> {
     const { predictions } = await import("@shared/schema");
+    const lastUpdatedAt = prediction.lastUpdated ? new Date(prediction.lastUpdated) : new Date();
     await this.db.insert(predictions).values({
       raceId: prediction.raceId,
       candidateId: prediction.candidateId,
@@ -403,6 +373,7 @@ export class DbStorage implements IStorage {
       confidenceIntervalLow: prediction.confidenceInterval.low,
       confidenceIntervalHigh: prediction.confidenceInterval.high,
       factors: prediction.factors,
+      lastUpdated: lastUpdatedAt,
       methodology: prediction.methodology,
       aiAnalysis: prediction.aiAnalysis,
     });
@@ -410,6 +381,7 @@ export class DbStorage implements IStorage {
 
   async updatePrediction(prediction: Prediction): Promise<void> {
     const { predictions } = await import("@shared/schema");
+    const lastUpdatedAt = prediction.lastUpdated ? new Date(prediction.lastUpdated) : new Date();
     await this.db
       .insert(predictions)
       .values({
@@ -419,6 +391,7 @@ export class DbStorage implements IStorage {
         confidenceIntervalLow: prediction.confidenceInterval.low,
         confidenceIntervalHigh: prediction.confidenceInterval.high,
         factors: prediction.factors,
+        lastUpdated: lastUpdatedAt,
         methodology: prediction.methodology,
         aiAnalysis: prediction.aiAnalysis,
       })
@@ -429,10 +402,58 @@ export class DbStorage implements IStorage {
           confidenceIntervalLow: prediction.confidenceInterval.low,
           confidenceIntervalHigh: prediction.confidenceInterval.high,
           factors: prediction.factors,
+          lastUpdated: lastUpdatedAt,
           methodology: prediction.methodology,
           aiAnalysis: prediction.aiAnalysis,
         },
       });
+  }
+
+  async getPredictionSourcesByRace(raceId: string): Promise<PredictionSource[]> {
+    const { predictionSources } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const results = await this.db
+      .select()
+      .from(predictionSources)
+      .where(eq(predictionSources.raceId, raceId));
+
+    return results.map((row: any) => ({
+      id: row.id,
+      raceId: row.raceId,
+      candidateId: row.candidateId || undefined,
+      factor: row.factor || undefined,
+      sourceType: row.sourceType,
+      sourceUrl: row.sourceUrl,
+      sourceTitle: row.sourceTitle,
+      publishedAt: row.publishedAt ? row.publishedAt.toISOString() : undefined,
+      retrievedAt: row.retrievedAt.toISOString(),
+      summary: row.summary,
+    }));
+  }
+
+  async replacePredictionSourcesForRace(raceId: string, sources: InsertPredictionSource[]): Promise<void> {
+    const { predictionSources } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    await this.db.delete(predictionSources).where(eq(predictionSources.raceId, raceId));
+
+    if (sources.length === 0) {
+      return;
+    }
+
+    await this.db.insert(predictionSources).values(
+      sources.map((source) => ({
+        raceId,
+        candidateId: source.candidateId,
+        factor: source.factor,
+        sourceType: source.sourceType,
+        sourceUrl: source.sourceUrl,
+        sourceTitle: source.sourceTitle,
+        publishedAt: source.publishedAt ? new Date(source.publishedAt) : null,
+        retrievedAt: new Date(source.retrievedAt),
+        summary: source.summary,
+      })),
+    );
   }
 
   async getAllFeaturedMatchups(): Promise<FeaturedMatchup[]> {

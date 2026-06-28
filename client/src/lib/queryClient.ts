@@ -59,6 +59,30 @@ export async function apiRequest<T = unknown>(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
+const STALE_TIME_MS = {
+  races: 30 * 1000,
+  featuredMatchups: 60 * 1000,
+  default: 5 * 60 * 1000,
+} as const;
+
+function getStaleTimeForQueryKey(queryKey: readonly unknown[]): number {
+  const [baseKey] = queryKey;
+  if (typeof baseKey !== "string") {
+    return STALE_TIME_MS.default;
+  }
+
+  if (baseKey === "/api/races" || baseKey.startsWith("/api/races/")) {
+    return STALE_TIME_MS.races;
+  }
+
+  if (baseKey === "/api/featured-matchups") {
+    return STALE_TIME_MS.featuredMatchups;
+  }
+
+  return STALE_TIME_MS.default;
+}
+
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
@@ -84,7 +108,7 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: true,
-      staleTime: 0,
+      staleTime: (query) => getStaleTimeForQueryKey(query.queryKey),
       refetchOnMount: true,
       retry: false,
     },

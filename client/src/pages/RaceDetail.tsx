@@ -13,6 +13,7 @@ interface RaceDetailData {
   race: Race;
   candidates: Candidate[];
   predictions: Prediction[];
+  lastCheckedAt?: string;
 }
 
 export default function RaceDetail() {
@@ -57,7 +58,7 @@ export default function RaceDetail() {
     );
   }
 
-  const { race, candidates, predictions } = data;
+  const { race, candidates, predictions, lastCheckedAt } = data;
 
   const candidatesWithPredictions = candidates
     .map((candidate) => ({
@@ -88,7 +89,7 @@ export default function RaceDetail() {
             </div>
             <ShareButton
               title={race.title}
-              text={candidatesWithPredictions.length > 0 
+              text={candidatesWithPredictions.length > 0
                 ? `🗳️ Based on the scenario analysis, ${candidatesWithPredictions[0]?.candidate.name} currently has the highest estimated win probability at ${candidatesWithPredictions[0]?.prediction?.winProbability.toFixed(1)}% in the ${race.title}. ${typeof window !== 'undefined' ? window.location.href : ''}`
                 : `🗳️ Check out the ${race.title} election analysis on ElectionPredict! ${typeof window !== 'undefined' ? window.location.href : ''}`}
               url={typeof window !== 'undefined' ? window.location.href : ''}
@@ -120,6 +121,13 @@ export default function RaceDetail() {
                     <Calendar className="h-4 w-4" />
                     <span>{new Date(race.electionDate).toLocaleDateString()}</span>
                   </div>
+                  {lastCheckedAt && (
+                    <Badge variant="outline">Last checked {new Date(lastCheckedAt).toLocaleDateString(undefined, {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}</Badge>
+                  )}
                 </div>
               </div>
             </div>
