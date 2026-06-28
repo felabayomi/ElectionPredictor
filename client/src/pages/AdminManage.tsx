@@ -34,6 +34,13 @@ interface RaceWithData {
 interface ReanalysisResponse {
   reanalyzedAt: string;
   summary?: string;
+  mode?: "ai" | "fallback" | "unknown";
+  fallbackReason?: string | null;
+  changeSummary?: {
+    changedCandidates: number;
+    unchangedCandidates: number;
+    maxDelta: number;
+  };
   analysis?: string;
   scorecards?: ReanalysisAuditData["scorecards"];
   predictionSources?: ReanalysisAuditData["predictionSources"];
@@ -270,9 +277,19 @@ export default function AdminManage() {
       });
       setReanalyzingRaceId(null);
       setLastReanalysisAudit(result);
+
+      const movement = result.changeSummary
+        ? `${result.changeSummary.changedCandidates} moved, ${result.changeSummary.unchangedCandidates} unchanged, max shift ${result.changeSummary.maxDelta.toFixed(1)}%`
+        : "Movement summary unavailable.";
+      const modeLabel = result.mode === "fallback"
+        ? `Fallback mode${result.fallbackReason ? ` (${result.fallbackReason})` : ""}.`
+        : result.mode === "ai"
+          ? "AI mode."
+          : "Mode unknown.";
+
       toast({
         title: "Race reanalyzed successfully",
-        description: result.summary || "Updated using stored candidate data only."
+        description: `${modeLabel} ${movement}`
       });
     },
     onError: (error: unknown) => {
