@@ -19,42 +19,42 @@ function normalizeUniqueProbabilities(weightedScores: number[]): number[] {
   const MIN_PROB = 1; // 0.1% in tenths
   const MIN_GAP = 3; // 0.3% gap in tenths
   const TARGET_TOTAL = 1000; // 100.0% in tenths
-  
+
   const n = weightedScores.length;
-  
+
   // Step 1: Build baseline vector ensuring strict order
   const baseline = weightedScores.map((_, i) => MIN_PROB + MIN_GAP * (n - 1 - i));
   const baselineSum = baseline.reduce((sum, b) => sum + b, 0);
-  
+
   if (baselineSum > TARGET_TOTAL) {
     throw new Error(`Too many candidates (${n}) for unique probabilities with 0.1% minimum and 0.3% gap`);
   }
-  
+
   // Step 2: Calculate weight shares for distributing extra pool
   const totalWeight = weightedScores.reduce((sum, w) => sum + w, 0);
   const weightShares = weightedScores.map(w => w / totalWeight);
   const extraPool = TARGET_TOTAL - baselineSum;
-  
+
   // Step 3: Compute ideal allocations
   const ideal = baseline.map((b, i) => b + extraPool * weightShares[i]);
-  
+
   // Step 4: Floor ideal values and track remainders
   const prob = ideal.map(v => Math.floor(v));
   const remainders = ideal.map((v, i) => ({ index: i, remainder: v - prob[i] }));
   remainders.sort((a, b) => b.remainder - a.remainder); // Descending by remainder
-  
+
   // Step 5: Distribute leftover units respecting upper bounds
   let allocated = prob.reduce((sum, p) => sum + p, 0);
   for (const { index } of remainders) {
     if (allocated >= TARGET_TOTAL) break;
-    
+
     const upperBound = index === 0 ? TARGET_TOTAL : prob[index - 1] - MIN_GAP;
     if (prob[index] < upperBound) {
       prob[index]++;
       allocated++;
     }
   }
-  
+
   // Step 6: Redistribute any remaining shortfall/excess
   const remaining = TARGET_TOTAL - allocated;
   if (remaining > 0) {
@@ -76,14 +76,14 @@ function normalizeUniqueProbabilities(weightedScores: number[]): number[] {
       }
     }
   }
-  
+
   // Step 7: Final sanity sweep - enforce gaps strictly
   for (let i = 1; i < n; i++) {
     if (prob[i] >= prob[i - 1] - MIN_GAP + 1) {
       prob[i] = prob[i - 1] - MIN_GAP;
     }
   }
-  
+
   // Step 8: Rebalance to ensure exactly 100% after gap enforcement
   let finalTotal = prob.reduce((sum, p) => sum + p, 0);
   if (finalTotal !== TARGET_TOTAL) {
@@ -91,7 +91,7 @@ function normalizeUniqueProbabilities(weightedScores: number[]): number[] {
     // Distribute deficit/excess to the first candidate (has most headroom)
     prob[0] += deficit;
   }
-  
+
   // Convert tenths back to percentages
   return prob.map(p => p / SCALE);
 }
@@ -179,30 +179,30 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
 
     const content = response.choices[0]?.message?.content || "{}";
     console.log("[generateCustomPrediction] AI response:", content);
-    
+
     // Strip markdown code blocks if present
     let cleanedContent = content.trim();
     if (cleanedContent.startsWith('```')) {
       cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
     }
-    
+
     const result = JSON.parse(cleanedContent);
-    
+
     return {
       predictions: result.predictions || {},
       analysis: result.analysis || "Analysis generated based on candidate profiles and party affiliations.",
     };
   } catch (error) {
     console.error("OpenAI API error:", error);
-    
+
     const fallbackPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
-    
+
     // Generate deterministic factor scores based on candidate properties
     const candidatesWithScores = candidates.map((c, i) => {
       // Use name hash and index for deterministic but varied scores
       const nameHash = c.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       const seed = (nameHash + i * 17) % 100;
-      
+
       // Deterministic factor generation (40-80 range for variety)
       const factors: PredictionFactors = {
         partisanLean: 40 + ((seed * 7) % 40),
@@ -214,9 +214,9 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
         issueAlignment: 40 + ((seed * 19) % 40),
         momentum: 40 + ((seed * 23) % 40),
       };
-      
+
       // Calculate weighted composite score using the 8-factor model
-      const compositeScore = 
+      const compositeScore =
         (factors.partisanLean * 0.25) +
         (factors.polling * 0.20) +
         (factors.candidateExperience * 0.15) +
@@ -225,21 +225,21 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
         (factors.endorsements * 0.10) +
         (factors.issueAlignment * 0.05) +
         (factors.momentum * 0.05);
-      
+
       return { candidate: c, factors, compositeScore };
     });
-    
+
     // Sort by composite score descending, then alphabetically for ties
     candidatesWithScores.sort((a, b) => {
       const scoreDiff = b.compositeScore - a.compositeScore;
       if (scoreDiff !== 0) return scoreDiff;
       return a.candidate.name.localeCompare(b.candidate.name);
     });
-    
+
     // Use shared helper to normalize probabilities with guaranteed uniqueness
     const weightedScores = candidatesWithScores.map(item => item.compositeScore);
     const probs = normalizeUniqueProbabilities(weightedScores);
-    
+
     // Assign probabilities
     candidatesWithScores.forEach((item, i) => {
       fallbackPredictions[item.candidate.name] = {
@@ -247,7 +247,7 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
         factors: item.factors,
       };
     });
-    
+
     return {
       predictions: fallbackPredictions,
       analysis: "Early-cycle prediction analysis based on statistical modeling using publicly available data. Each candidate's viability depends on partisan lean, candidate experience, name recognition, endorsements, issue alignment, and momentum—with NO polling or fundraising data required.",
@@ -277,12 +277,12 @@ export async function generateIntelligentSuggestions(
     candidateCount: r.candidates.length,
     viewCount: r.race.viewCount || 0,
     topCandidates: r.candidates.slice(0, 2).map(c => c.name),
-    margin: r.predictions.length >= 2 
+    margin: r.predictions.length >= 2
       ? Math.abs(r.predictions[0].winProbability - r.predictions[1].winProbability)
       : 0,
   }));
 
-  const contextSection = currentNewsContext 
+  const contextSection = currentNewsContext
     ? `\n\nCurrent Political News Context:\n${currentNewsContext}\n\nUse this news context to inform which races are most relevant right now.`
     : '';
 
@@ -324,20 +324,20 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
     });
 
     const content = response.choices[0]?.message?.content || "{}";
-    
+
     // Strip markdown code blocks if present
     let cleanedContent = content.trim();
     if (cleanedContent.startsWith('```')) {
       cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
     }
-    
+
     const result = JSON.parse(cleanedContent);
-    
+
     const suggestions = (result.suggestions || [])
       .map((s: any) => {
         const matchingRace = races.find(r => r.race.id === s.raceId);
         if (!matchingRace) return null;
-        
+
         return {
           race: matchingRace.race,
           candidates: matchingRace.candidates.slice(0, 2),
@@ -354,7 +354,7 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
     };
   } catch (error) {
     console.error("OpenAI API error:", error);
-    
+
     const fallbackSuggestions = races
       .filter(r => r.predictions.length >= 2)
       .map(r => {
@@ -362,7 +362,7 @@ Return EXACTLY 3 suggestions, ordered by score (highest first).`;
         const viewScore = (r.race.viewCount || 0) * 10;
         const competitiveScore = (20 - margin) * 5;
         const score = viewScore + competitiveScore;
-        
+
         return {
           race: r.race,
           candidates: r.candidates.slice(0, 2),
@@ -398,20 +398,20 @@ function generateDeterministicPredictions(
   candidates: Candidate[]
 ): Record<string, { probability: number; factors: PredictionFactors }> {
   console.log("[reanalyzeRace] Using deterministic fallback - AI unavailable");
-  
+
   // Generate deterministic factor scores and calculate weighted composite scores
   const candidatesWithScores = candidates.map((candidate, index) => {
     // Generate deterministic factor scores based on candidate ID hash
     const hash = hashString(candidate.id);
     const seed = hash % 100;
-    
+
     // Use actual candidate data when available, otherwise use deterministic values
     const factors: PredictionFactors = {
       // Use hash-derived values for stable, deterministic factors (40-70 range)
       partisanLean: 40 + ((seed + 0) % 30),
       // Use actual polling data if available, otherwise deterministic
-      polling: candidate.pollingAverage !== undefined && candidate.pollingAverage !== null 
-        ? Math.min(100, Math.max(0, candidate.pollingAverage)) 
+      polling: candidate.pollingAverage !== undefined && candidate.pollingAverage !== null
+        ? Math.min(100, Math.max(0, candidate.pollingAverage))
         : 40 + ((seed + 11) % 30),
       // Boost experience score for incumbents and based on years
       candidateExperience: (() => {
@@ -423,7 +423,7 @@ function generateDeterministicPredictions(
         return Math.min(100, base);
       })(),
       // Use actual fundraising if available, scale to 0-100
-      fundraising: candidate.fundraisingTotal !== undefined && candidate.fundraisingTotal !== null 
+      fundraising: candidate.fundraisingTotal !== undefined && candidate.fundraisingTotal !== null
         ? Math.min(100, Math.max(0, Math.min(100, candidate.fundraisingTotal / 10000000 * 100)))
         : 40 + ((seed + 37) % 30),
       nameRecognition: 40 + ((seed + 47) % 30),
@@ -434,9 +434,9 @@ function generateDeterministicPredictions(
       issueAlignment: 40 + ((seed + 71) % 30),
       momentum: 40 + ((seed + 83) % 30),
     };
-    
+
     // Calculate weighted composite score using the 8-factor model
-    const compositeScore = 
+    const compositeScore =
       (factors.partisanLean * 0.25) +
       (factors.polling * 0.20) +
       (factors.candidateExperience * 0.15) +
@@ -445,21 +445,21 @@ function generateDeterministicPredictions(
       (factors.endorsements * 0.10) +
       (factors.issueAlignment * 0.05) +
       (factors.momentum * 0.05);
-    
+
     return { candidate, factors, compositeScore };
   });
-  
+
   // Sort by composite score descending, then alphabetically for ties
   candidatesWithScores.sort((a, b) => {
     const scoreDiff = b.compositeScore - a.compositeScore;
     if (scoreDiff !== 0) return scoreDiff;
     return a.candidate.name.localeCompare(b.candidate.name);
   });
-  
+
   // Use shared helper to normalize probabilities with guaranteed uniqueness
   const weightedScores = candidatesWithScores.map(item => item.compositeScore);
   const probs = normalizeUniqueProbabilities(weightedScores);
-  
+
   // Assign probabilities
   const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
   candidatesWithScores.forEach((item, index) => {
@@ -532,27 +532,27 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
     console.log(`[reanalyzeRace] Raw AI response:`, content || "(empty)");
     console.log(`[reanalyzeRace] Finish reason:`, response.choices[0]?.finish_reason);
     console.log(`[reanalyzeRace] Usage:`, response.usage);
-    
+
     // Detect empty/falsy responses and fall back to deterministic predictions
     if (!content || content.trim() === "" || content === "{}") {
       console.warn("[reanalyzeRace] AI returned empty response - using deterministic fallback");
       return generateDeterministicPredictions(candidates);
     }
-    
+
     // Strip markdown code blocks if present (OpenAI sometimes wraps JSON in ```json ... ```)
     let cleanedContent = content.trim();
     if (cleanedContent.startsWith('```')) {
       // Remove opening ```json or ``` and closing ```
       cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
     }
-    
+
     const result = JSON.parse(cleanedContent);
-    
+
     if (!result.predictions || Object.keys(result.predictions).length === 0) {
       console.warn("[reanalyzeRace] AI returned no predictions - using deterministic fallback");
       return generateDeterministicPredictions(candidates);
     }
-    
+
     // Validate and normalize AI-generated probabilities
     const predictionEntries = Object.entries(result.predictions).map(([name, data]: [string, any]) => {
       const prob = typeof data.probability === 'number' ? data.probability : parseFloat(data.probability);
@@ -562,27 +562,27 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
         factors: data.factors,
       };
     });
-    
+
     // Check if probabilities are valid for normalization
     const totalProb = predictionEntries.reduce((sum, entry) => sum + entry.probability, 0);
     const hasInvalidProbs = predictionEntries.some(entry => entry.probability < 0 || !isFinite(entry.probability));
-    
+
     if (totalProb <= 0 || hasInvalidProbs) {
       console.warn("[reanalyzeRace] AI returned invalid probabilities (sum=" + totalProb + ") - using deterministic fallback");
       return generateDeterministicPredictions(candidates);
     }
-    
+
     // Sort by probability descending (required by normalizeUniqueProbabilities)
     predictionEntries.sort((a, b) => b.probability - a.probability);
-    
+
     // Extract sorted probabilities for normalization
     const sortedProbabilities = predictionEntries.map(entry => entry.probability);
-    
+
     // Normalize probabilities to ensure they sum to exactly 100% and are unique
     let normalizedProbs: number[];
     try {
       normalizedProbs = normalizeUniqueProbabilities(sortedProbabilities);
-      
+
       // Validate normalized output
       const sum = normalizedProbs.reduce((a, b) => a + b, 0);
       const allValid = normalizedProbs.every((p, i) => {
@@ -591,7 +591,7 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
         if (i > 0 && normalizedProbs[i - 1] - p < 0.3) return false; // Must have 0.3% gap
         return true;
       });
-      
+
       if (!allValid || Math.abs(sum - 100) > 0.01) {
         console.warn(`[reanalyzeRace] Normalization produced invalid probabilities (sum=${sum.toFixed(2)}%) - using deterministic fallback`);
         return generateDeterministicPredictions(candidates);
@@ -600,7 +600,7 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
       console.warn("[reanalyzeRace] Normalization failed:", error, "- using deterministic fallback");
       return generateDeterministicPredictions(candidates);
     }
-    
+
     // Rebuild predictions with normalized probabilities mapped to correct candidates
     const normalizedPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
     predictionEntries.forEach((entry, index) => {
@@ -609,31 +609,31 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
         factors: entry.factors,
       };
     });
-    
+
     // CRITICAL: Ensure ALL candidates have predictions
     // If AI missed any candidates (especially newly added ones), use deterministic fallback for them
     const candidatesWithPredictions = new Set(Object.keys(normalizedPredictions));
     const missingCandidates = candidates.filter(c => !candidatesWithPredictions.has(c.name));
-    
+
     if (missingCandidates.length > 0) {
       console.warn(`[reanalyzeRace] AI missed ${missingCandidates.length} candidates: ${missingCandidates.map(c => c.name).join(', ')} - generating deterministic predictions for them`);
       const deterministicFallback = generateDeterministicPredictions(missingCandidates);
-      
+
       // Merge AI predictions with deterministic predictions for missing candidates
       Object.assign(normalizedPredictions, deterministicFallback);
-      
+
       // Re-normalize all probabilities to ensure they still sum to exactly 100%
       const allPredictions = candidates.map(c => ({
         name: c.name,
         probability: normalizedPredictions[c.name]?.probability || 0,
         factors: normalizedPredictions[c.name]?.factors || { partisanLean: 0, polling: 0, candidateExperience: 0, fundraising: 0, nameRecognition: 0, endorsements: 0, issueAlignment: 0, momentum: 0 }
       }));
-      
+
       // Sort by probability for renormalization
       allPredictions.sort((a, b) => b.probability - a.probability);
       const allProbs = allPredictions.map(p => p.probability);
       const finalNormalizedProbs = normalizeUniqueProbabilities(allProbs);
-      
+
       // Rebuild with all candidates and renormalized probabilities
       const finalPredictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
       allPredictions.forEach((entry, index) => {
@@ -642,10 +642,10 @@ CRITICAL: Each candidate MUST have a UNIQUE win probability - NO TIES ALLOWED. E
           factors: entry.factors,
         };
       });
-      
+
       return finalPredictions;
     }
-    
+
     return normalizedPredictions;
   } catch (error) {
     console.error("OpenAI API error during reanalysis:", error);
@@ -688,7 +688,7 @@ Return ONLY valid JSON:
 
   try {
     console.log("Detecting question type for:", query.substring(0, 100) + "...");
-    
+
     const detectionResponse = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [{ role: "user", content: detectionPrompt }],
@@ -697,9 +697,9 @@ Return ONLY valid JSON:
 
     const detectionContent = detectionResponse.choices[0]?.message?.content || "{}";
     const detection = JSON.parse(detectionContent);
-    
+
     console.log("Question type detection:", detection);
-    
+
     if (detection.questionType === "FACT_FINDING") {
       throw new Error("FACT_FINDING_QUESTION: This appears to be a research question about actual political data or past events, rather than an election prediction scenario. The Natural Language Analysis feature is designed to predict outcomes for hypothetical races. For fact-finding questions, try searching political news sources, FiveThirtyEight's research database, or academic polling archives.");
     }
@@ -767,7 +767,7 @@ Probabilities must sum to ~100.`;
 
   try {
     console.log("Sending natural language query to OpenAI:", query.substring(0, 100) + "...");
-    
+
     const response = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [{ role: "user", content: prompt }],
@@ -776,25 +776,25 @@ Probabilities must sum to ~100.`;
 
     const content = response.choices[0]?.message?.content || "{}";
     console.log("OpenAI response received, parsing...");
-    
+
     // Strip markdown code blocks if present
     let cleanedContent = content.trim();
     if (cleanedContent.startsWith('```')) {
       cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
     }
-    
+
     const result = JSON.parse(cleanedContent);
     console.log("Parsed result:", {
       raceTitle: result.raceTitle,
       candidateCount: result.candidates?.length || 0,
       candidateNames: result.candidates?.map((c: any) => c.name) || []
     });
-    
+
     if (!result.candidates || result.candidates.length === 0) {
       console.warn("OpenAI returned no candidates, using fallback extraction");
       throw new Error("No candidates in OpenAI response");
     }
-    
+
     return {
       raceTitle: result.raceTitle || "Election Analysis",
       candidates: result.candidates,
@@ -803,27 +803,27 @@ Probabilities must sum to ~100.`;
     };
   } catch (error) {
     console.error("OpenAI API error, using fallback extraction:", error);
-    
+
     const candidateListMatch = query.match(/(?:consider|candidates?:?|contenders?:?)[\s:]*([^.?!]+)/i);
     let candidateSection = candidateListMatch ? candidateListMatch[1] : query;
-    
+
     candidateSection = candidateSection.replace(/^[•\-\*\s]+/gm, ' ');
-    
+
     const allNames = candidateSection.match(/[A-Z][a-z]+(?:[ -][A-Z][a-z]+)+/g) || [];
-    
+
     console.log("Fallback extraction found potential names:", allNames);
-    
+
     const excludeTerms = [
-      'New York', 'California', 'Texas', 'Florida', 'Senate', 'House', 'Governor', 
+      'New York', 'California', 'Texas', 'Florida', 'Senate', 'House', 'Governor',
       'Presidential', 'Democratic', 'Republican', 'Independent', 'Primary', 'Election',
       'Race', 'Consider These', 'Top Contenders', 'United States'
     ];
-    
+
     const retiringKeywords = ['retires', 'retiring', 'steps down', 'stepping down', 'leaves office'];
     const beforeRetiring = retiringKeywords.some(kw => query.toLowerCase().includes(kw))
       ? query.toLowerCase().split(retiringKeywords.find(kw => query.toLowerCase().includes(kw))!)[0]
       : '';
-    
+
     const uniqueNames = Array.from(new Set(allNames.map(n => n.trim())))
       .filter(n => n.length > 3)
       .filter(n => !n.includes('\n'))
@@ -835,15 +835,15 @@ Probabilities must sum to ~100.`;
         const words = n.split(' ');
         return words.length >= 2 && words.length <= 4;
       });
-    
+
     const candidates = uniqueNames.slice(0, 10).map(name => ({
       name: name.trim(),
       party: "Democratic" as Party,
     }));
-    
+
     const predictions: Record<string, { probability: number; factors: PredictionFactors }> = {};
     const baseProb = candidates.length > 0 ? 100 / candidates.length : 0;
-    
+
     candidates.forEach(c => {
       const variance = (Math.random() - 0.5) * 20;
       predictions[c.name] = {
@@ -860,7 +860,7 @@ Probabilities must sum to ~100.`;
         },
       };
     });
-    
+
     return {
       raceTitle: "Election Scenario Analysis",
       candidates,

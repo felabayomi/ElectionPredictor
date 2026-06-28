@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, Prediction } from "@shared/schema";
@@ -22,6 +23,7 @@ export default function NaturalLanguageAnalysis() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
+  const [showCreateWarning, setShowCreateWarning] = useState(false);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -41,20 +43,20 @@ export default function NaturalLanguageAnalysis() {
         title: "Analysis Complete",
         description: `Saved race with ${data.candidates?.length || 0} candidates. Redirecting...`,
       });
-      
+
       setTimeout(() => {
         setLocation(`/race/${data.raceId}`);
       }, 1000);
     },
     onError: (error) => {
       console.error("Natural language analysis error:", error);
-      
+
       const errorMessage = error instanceof Error ? error.message : "Failed to analyze your question. Please try again.";
       const isFactFinding = errorMessage.includes("FACT_FINDING_QUESTION:");
-      
+
       toast({
         title: isFactFinding ? "Research Question Detected" : "Analysis Failed",
-        description: isFactFinding 
+        description: isFactFinding
           ? errorMessage.replace("FACT_FINDING_QUESTION: ", "")
           : errorMessage,
         variant: isFactFinding ? "default" : "destructive",
@@ -63,7 +65,7 @@ export default function NaturalLanguageAnalysis() {
   });
 
   const handleAnalyze = () => {
-    analyzeMutation.mutate();
+    setShowCreateWarning(true);
   };
 
   const exampleQueries = [
@@ -158,11 +160,10 @@ export default function NaturalLanguageAnalysis() {
             </Button>
 
             {analyzeMutation.isError && (
-              <div className={`text-sm p-3 rounded-md ${
-                analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
+              <div className={`text-sm p-3 rounded-md ${analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
                   ? "bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800"
                   : "bg-destructive/10 text-destructive border border-destructive/20"
-              }`}>
+                }`}>
                 <p className="font-medium mb-1">
                   {analyzeMutation.error instanceof Error && analyzeMutation.error.message.includes("FACT_FINDING_QUESTION:")
                     ? "Research Question Detected"
@@ -170,7 +171,7 @@ export default function NaturalLanguageAnalysis() {
                   }
                 </p>
                 <p className="text-sm">
-                  {analyzeMutation.error instanceof Error 
+                  {analyzeMutation.error instanceof Error
                     ? analyzeMutation.error.message.replace("FACT_FINDING_QUESTION: ", "")
                     : "Analysis failed"
                   }
@@ -215,6 +216,27 @@ export default function NaturalLanguageAnalysis() {
             </p>
           </div>
         )}
+
+        <AlertDialog open={showCreateWarning} onOpenChange={setShowCreateWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm before creating</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will create a saved race scenario from your question. Only admins can edit or delete
+                scenarios after they are created.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-nl-create">Review Question</AlertDialogCancel>
+              <AlertDialogAction
+                data-testid="button-confirm-nl-create"
+                onClick={() => analyzeMutation.mutate()}
+              >
+                Create Scenario
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

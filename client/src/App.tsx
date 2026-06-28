@@ -6,19 +6,36 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "@/pages/Dashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminManage from "@/pages/AdminManage";
+import SubscriberStudio from "@/pages/SubscriberStudio";
 import PresidentialPrimaryCompare from "@/pages/PresidentialPrimaryCompare";
 import NYSenateCompare from "@/pages/NYSenateCompare";
 import RaceDetail from "@/pages/RaceDetail";
 import CustomPrediction from "@/pages/CustomPrediction";
 import NaturalLanguageAnalysis from "@/pages/NaturalLanguageAnalysis";
 import NotFound from "@/pages/not-found";
+import { AdminRoute } from "@/components/AdminRoute";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/admin/felixdgreat/manage" component={AdminManage} />
-      <Route path="/admin/felixdgreat" component={AdminDashboard} />
+      <Route path="/subscriber-studio" component={SubscriberStudio} />
+      <Route
+        path="/admin/felixdgreat/manage"
+        component={() => (
+          <AdminRoute>
+            <AdminManage />
+          </AdminRoute>
+        )}
+      />
+      <Route
+        path="/admin/felixdgreat"
+        component={() => (
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        )}
+      />
       <Route path="/compare/presidential-primary" component={PresidentialPrimaryCompare} />
       <Route path="/compare/ny-senate" component={NYSenateCompare} />
       <Route path="/custom-prediction" component={CustomPrediction} />

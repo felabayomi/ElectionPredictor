@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Party, Candidate, Prediction } from "@shared/schema";
@@ -32,6 +33,7 @@ export default function CustomPrediction() {
     { name: "", party: "Republican" },
   ]);
   const [raceTitle, setRaceTitle] = useState("");
+  const [showCreateWarning, setShowCreateWarning] = useState(false);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -39,7 +41,7 @@ export default function CustomPrediction() {
         name: c.name.trim(),
         party: c.party
       }));
-      
+
       if (validCandidates.length < 2) {
         throw new Error("Please enter at least 2 candidates");
       }
@@ -59,7 +61,7 @@ export default function CustomPrediction() {
         title: "Race Created Successfully",
         description: "Redirecting to race details...",
       });
-      
+
       setTimeout(() => {
         setLocation(`/race/${data.raceId}`);
       }, 1000);
@@ -91,7 +93,7 @@ export default function CustomPrediction() {
   };
 
   const handleAnalyze = () => {
-    analyzeMutation.mutate();
+    setShowCreateWarning(true);
   };
 
   return (
@@ -221,6 +223,27 @@ export default function CustomPrediction() {
             )}
           </CardContent>
         </Card>
+
+        <AlertDialog open={showCreateWarning} onOpenChange={setShowCreateWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm before creating</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action creates a new race scenario. Only admins can edit or delete scenarios after creation.
+                Continue only if the candidate names and race details are final.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-custom-create">Review Details</AlertDialogCancel>
+              <AlertDialogAction
+                data-testid="button-confirm-custom-create"
+                onClick={() => analyzeMutation.mutate()}
+              >
+                Create Scenario
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

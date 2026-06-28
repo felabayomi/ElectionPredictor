@@ -1,12 +1,238 @@
-import type { Express } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, generateIntelligentSuggestions, reanalyzeRace } from "./openai";
 import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, SuggestedMatchup } from "@shared/schema";
 import { insertFeaturedMatchupSchema, insertRaceSchema, insertCandidateSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
+import Stripe from "stripe";
+
+const DEFAULT_ADMIN_KEY = "19770520$&?";
+
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase();
+}
+
+function hasActiveSubscription(status?: string): boolean {
+  return status === "active" || status === "trialing";
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const getConfiguredAdminKey = () => process.env.ELECTION_PREDICTOR_ADMIN_KEY || DEFAULT_ADMIN_KEY;
+
+  const isValidAdminRequest = (req: Request): boolean => {
+    const providedKey = req.header("x-admin-key");
+    return Boolean(providedKey && providedKey === getConfiguredAdminKey());
+  };
+
+  const requireAdminAccess = (req: Request, res: Response, next: NextFunction) => {
+    if (!isValidAdminRequest(req)) {
+      return res.status(401).json({ error: "Unauthorized admin access" });
+    }
+
+    next();
+  };
+
+  const requireSubscriberAccess = async (req: Request, res: Response, next: NextFunction) => {
+    if (isValidAdminRequest(req)) {
+      return next();
+    }
+
+    const email = normalizeEmail(req.header("x-subscriber-email"));
+    if (!email) {
+      return res.status(402).json({
+        error: "Active subscription required",
+        details: "Missing subscriber email header",
+      });
+    }
+
+    const subscription = await storage.getSubscriptionByEmail(email);
+    if (!subscription || !hasActiveSubscription(subscription.status)) {
+      return res.status(402).json({
+        error: "Active subscription required",
+      });
+    }
+
+    next();
+  };
+
+  app.use("/api/admin", requireAdminAccess);
+
+  app.get("/api/subscription/status", async (req, res) => {
+    try {
+      const email = normalizeEmail(req.query.email);
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const subscription = await storage.getSubscriptionByEmail(email);
+      const isActive = Boolean(subscription && hasActiveSubscription(subscription.status));
+      res.json({
+        email,
+        subscription: subscription || null,
+        isActive,
+      });
+    } catch (error) {
+      console.error("Error reading subscription status:", error);
+      res.status(500).json({ error: "Failed to read subscription status" });
+    }
+  });
+
+  app.post("/api/subscription/checkout", async (req, res) => {
+    try {
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      const stripePriceId = process.env.STRIPE_PRICE_ID;
+
+      if (!stripeSecretKey || !stripePriceId) {
+        return res.status(503).json({
+          error: "Stripe checkout is not configured",
+        });
+      }
+
+      const email = normalizeEmail(req.body?.email);
+      if (!email) {
+        return res.status(400).json({ error: "Valid email is required" });
+      }
+
+      const stripe = new Stripe(stripeSecretKey, {
+        apiVersion: "2025-02-24.acacia",
+      });
+
+      const appBaseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        payment_method_types: ["card"],
+        customer_email: email,
+        line_items: [{ price: stripePriceId, quantity: 1 }],
+        metadata: { email },
+        success_url: `${appBaseUrl}/subscriber-studio?checkout=success&email=${encodeURIComponent(email)}`,
+        cancel_url: `${appBaseUrl}/subscriber-studio?checkout=cancelled`,
+      });
+
+      res.json({ checkoutUrl: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  app.post("/api/subscription/portal", async (req, res) => {
+    try {
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeSecretKey) {
+        return res.status(503).json({ error: "Stripe portal is not configured" });
+      }
+
+      const email = normalizeEmail(req.body?.email);
+      if (!email) {
+        return res.status(400).json({ error: "Valid email is required" });
+      }
+
+      const subscription = await storage.getSubscriptionByEmail(email);
+      if (!subscription?.stripeCustomerId) {
+        return res.status(404).json({ error: "No Stripe customer found for this email" });
+      }
+
+      const stripe = new Stripe(stripeSecretKey, {
+        apiVersion: "2025-02-24.acacia",
+      });
+
+      const appBaseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: subscription.stripeCustomerId,
+        return_url: `${appBaseUrl}/subscriber-studio`,
+      });
+
+      res.json({ portalUrl: portal.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ error: "Failed to create portal session" });
+    }
+  });
+
+  app.post("/api/subscription/webhook", async (req, res) => {
+    try {
+      const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+      const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!stripeSecretKey || !stripeWebhookSecret) {
+        return res.status(503).json({ error: "Stripe webhook is not configured" });
+      }
+
+      const stripe = new Stripe(stripeSecretKey, {
+        apiVersion: "2025-02-24.acacia",
+      });
+
+      const signature = req.header("stripe-signature");
+      if (!signature) {
+        return res.status(400).json({ error: "Missing stripe-signature header" });
+      }
+
+      const rawBody = req.rawBody;
+      if (!rawBody || !(rawBody instanceof Buffer)) {
+        return res.status(400).json({ error: "Invalid webhook payload" });
+      }
+
+      const event = stripe.webhooks.constructEvent(rawBody, signature, stripeWebhookSecret);
+
+      if (
+        event.type === "checkout.session.completed" ||
+        event.type === "customer.subscription.created" ||
+        event.type === "customer.subscription.updated" ||
+        event.type === "customer.subscription.deleted"
+      ) {
+        let email = "";
+        let status = "inactive";
+        let stripeCustomerId = "";
+        let stripeSubscriptionId = "";
+        let stripePriceId = "";
+        let currentPeriodEnd: Date | undefined;
+
+        if (event.type === "checkout.session.completed") {
+          const session = event.data.object as Stripe.Checkout.Session;
+          email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email);
+          status = "active";
+          stripeCustomerId = typeof session.customer === "string" ? session.customer : "";
+          stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : "";
+        } else {
+          const subscription = event.data.object as Stripe.Subscription;
+          email = normalizeEmail(subscription.metadata?.email);
+          if (!email && typeof subscription.customer === "string") {
+            const customer = await stripe.customers.retrieve(subscription.customer);
+            if (!("deleted" in customer)) {
+              email = normalizeEmail(customer.email);
+            }
+          }
+
+          status = subscription.status;
+          stripeCustomerId = typeof subscription.customer === "string" ? subscription.customer : "";
+          stripeSubscriptionId = subscription.id;
+          stripePriceId = subscription.items.data[0]?.price?.id || "";
+          if (subscription.current_period_end) {
+            currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+          }
+        }
+
+        if (email) {
+          await storage.upsertSubscriptionByEmail(email, {
+            status,
+            stripeCustomerId: stripeCustomerId || undefined,
+            stripeSubscriptionId: stripeSubscriptionId || undefined,
+            stripePriceId: stripePriceId || undefined,
+            currentPeriodEnd,
+          });
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook error:", error);
+      res.status(400).json({ error: "Webhook handler failed" });
+    }
+  });
+
   app.get("/api/races", async (_req, res) => {
     try {
       const races = await storage.getAllRaces();
@@ -131,10 +357,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch updated predictions to return
       const updatedPredictions = await storage.getPredictionsByRace(race.id);
       console.log(`Fetched ${updatedPredictions.length} predictions from database`);
-      
+
       console.log(`Successfully reanalyzed race: ${race.title}`);
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         predictions: updatedPredictions,
         message: "Race reanalyzed successfully"
       });
@@ -387,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/custom-prediction", async (req, res) => {
+  app.post("/api/custom-prediction", requireSubscriberAccess, async (req, res) => {
     try {
       const { candidates, raceTitle } = req.body;
 
@@ -431,7 +657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const predictions: Prediction[] = customCandidates.map((candidate) => {
         const predData = result.predictions[candidate.name];
-        
+
         if (!predData) {
           console.warn(`No prediction data found for candidate: ${candidate.name}, using defaults`);
           return {
@@ -470,11 +696,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save to database
       await storage.createRace(race);
-      
+
       for (const candidate of customCandidates) {
         await storage.createCandidate(candidate, race.id);
       }
-      
+
       for (const prediction of predictions) {
         await storage.createPrediction(prediction);
       }
@@ -493,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/natural-language-analysis", async (req, res) => {
+  app.post("/api/natural-language-analysis", requireSubscriberAccess, async (req, res) => {
     try {
       const { query } = req.body;
 
@@ -529,7 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const predictions: Prediction[] = candidates.map((candidate) => {
         const predData = result.predictions[candidate.name];
-        
+
         if (!predData) {
           console.warn(`No prediction data found for candidate: ${candidate.name}, using defaults`);
           return {
@@ -567,11 +793,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       await storage.createRace(race);
-      
+
       for (const candidate of candidates) {
         await storage.createCandidate(candidate, race.id);
       }
-      
+
       for (const prediction of predictions) {
         await storage.createPrediction(prediction);
       }
@@ -586,12 +812,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error analyzing natural language query:", error);
-      
+
       // If it's a fact-finding question, pass through the helpful message
       if (error.message?.startsWith("FACT_FINDING_QUESTION:")) {
         return res.status(400).json({ error: error.message });
       }
-      
+
       res.status(500).json({ error: "Failed to analyze query" });
     }
   });

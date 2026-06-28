@@ -1,0 +1,13 @@
+[1G[0K⠙[1G[0K
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K⠙[1G[0K1:57:16 AM [express] serving on port 5000
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+1:57:22 AM [express] GET /api/featured-matchups 304 in 100ms :: [{"id":"b06f1291-13d3-4f41-be22-fae2…
+1:57:22 AM [express] GET /api/races 304 in 167ms :: [{"race":{"id":"fe4fd68e-bcad-4b73-8b78-37c22f2f…
+1:57:39 AM [express] GET /api/featured-matchups 304 in 32ms :: [{"id":"b06f1291-13d3-4f41-be22-fae2f…

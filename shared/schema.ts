@@ -65,6 +65,18 @@ export const featuredMatchups = pgTable("featured_matchups", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const subscriberSubscriptions = pgTable("subscriber_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  status: text("status").notNull().default("inactive"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripePriceId: text("stripe_price_id"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -156,6 +168,18 @@ export interface SuggestedMatchup {
   predictions: Prediction[];
   reason: string;
   score: number;
+}
+
+export interface SubscriberSubscription {
+  id: string;
+  email: string;
+  status: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  stripePriceId?: string;
+  currentPeriodEnd?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const insertCandidateSchema = z.object({

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { RaceCard } from "@/components/RaceCard";
 import { CandidateCard } from "@/components/CandidateCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
+import AdminWatermark from "@/components/AdminWatermark";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup, Party, InsertCandidate } from "@shared/schema";
 import { insertCandidateSchema } from "@shared/schema";
@@ -43,7 +44,7 @@ export default function AdminDashboard() {
   const [editingMatchup, setEditingMatchup] = useState<FeaturedMatchup | null>(null);
   const [deletingMatchupId, setDeletingMatchupId] = useState<string | null>(null);
   const { toast } = useToast();
-  
+
   const form = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
@@ -52,7 +53,7 @@ export default function AdminDashboard() {
       photoUrl: "",
     },
   });
-  
+
   const editForm = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
@@ -69,7 +70,7 @@ export default function AdminDashboard() {
   const { data: featuredMatchups = [], isLoading: loadingFeatured } = useQuery<FeaturedMatchup[]>({
     queryKey: ["/api/featured-matchups"],
   });
-  
+
   const { data: raceCandidates = [], isLoading: loadingCandidates } = useQuery<Candidate[]>({
     queryKey: ["/api/admin/races", managingRaceId, "candidates"],
     enabled: !!managingRaceId,
@@ -84,10 +85,10 @@ export default function AdminDashboard() {
       toast({ title: "Race updated successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to update race", 
+      toast({
+        title: "Failed to update race",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -100,17 +101,17 @@ export default function AdminDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/races"] });
       setReanalyzingRaceId(null);
-      toast({ 
+      toast({
         title: "Race reanalyzed successfully",
         description: "Predictions updated based on current political landscape"
       });
     },
     onError: (error: any) => {
       setReanalyzingRaceId(null);
-      toast({ 
-        title: "Failed to reanalyze race", 
+      toast({
+        title: "Failed to reanalyze race",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -124,14 +125,14 @@ export default function AdminDashboard() {
       toast({ title: "Race deleted successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to delete race", 
+      toast({
+        title: "Failed to delete race",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
-  
+
   const addCandidateMutation = useMutation({
     mutationFn: async (data: InsertCandidate) => {
       return await apiRequest<Candidate>("POST", `/api/admin/races/${managingRaceId}/candidates`, data);
@@ -146,7 +147,7 @@ export default function AdminDashboard() {
       toast({ title: "Failed to add candidate", variant: "destructive" });
     },
   });
-  
+
   const updateCandidateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCandidate> }) => {
       return await apiRequest<Candidate>("PUT", `/api/admin/candidates/${id}`, data);
@@ -161,7 +162,7 @@ export default function AdminDashboard() {
       toast({ title: "Failed to update candidate", variant: "destructive" });
     },
   });
-  
+
   const deleteCandidateMutation = useMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/admin/candidates/${id}`);
@@ -187,10 +188,10 @@ export default function AdminDashboard() {
       toast({ title: "Featured matchup updated successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to update matchup", 
+      toast({
+        title: "Failed to update matchup",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -205,10 +206,10 @@ export default function AdminDashboard() {
       toast({ title: "Featured matchup deleted successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to delete matchup", 
+      toast({
+        title: "Failed to delete matchup",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -223,32 +224,33 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card sticky top-0 z-10">
+    <div className="min-h-screen bg-rose-50/30 relative isolate">
+      <AdminWatermark />
+      <header className="border-b border-rose-200 bg-rose-950 text-rose-50 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-md">
-                <BarChart3 className="h-6 w-6 text-primary-foreground" />
+              <div className="p-2 bg-rose-700 rounded-md">
+                <BarChart3 className="h-6 w-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold">ElectionPredict Admin</h1>
-                <p className="text-sm text-muted-foreground">AI-Powered Election Analysis</p>
+                <p className="text-sm text-rose-200">Control Center: create, edit, delete, and reanalyze</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Link href="/admin/felixdgreat/manage">
-                <Button variant="outline" size="sm" data-testid="button-manage-matchups">
+                <Button variant="secondary" size="sm" data-testid="button-manage-matchups">
                   Manage Featured Matchups
                 </Button>
               </Link>
               <Link href="/">
-                <Button variant="outline" size="sm" data-testid="button-public-view">
+                <Button variant="secondary" size="sm" data-testid="button-public-view">
                   Public View
                 </Button>
               </Link>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setMethodologyOpen(true)}
                 data-testid="button-methodology"
@@ -262,6 +264,14 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card className="mb-6 border-rose-300 bg-rose-100/70">
+          <CardContent className="py-4">
+            <p className="text-sm font-medium text-rose-900">
+              Admin zone: actions here can modify or remove production data. Public and subscriber users do not have these permissions.
+            </p>
+          </CardContent>
+        </Card>
+
         <div className="mb-8">
           <h2 className="text-4xl font-bold mb-2">Election Predictions Dashboard</h2>
           <p className="text-muted-foreground">
@@ -446,7 +456,7 @@ export default function AdminDashboard() {
       </main>
 
       <MethodologyModal open={methodologyOpen} onOpenChange={setMethodologyOpen} />
-      
+
       {/* Manage Candidates Dialog */}
       <Dialog open={!!managingRaceId} onOpenChange={(open) => {
         if (!open) {
@@ -461,7 +471,7 @@ export default function AdminDashboard() {
               Add, edit, or remove candidates for this race
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {loadingCandidates ? (
               <div className="text-center py-4 text-muted-foreground">Loading candidates...</div>
@@ -512,7 +522,7 @@ export default function AdminDashboard() {
                 <div className="border-t pt-4" />
               </>
             ) : null}
-            
+
             <div>
               <h4 className="text-sm font-medium mb-3">Add New Candidate</h4>
               <Form {...form}>
@@ -532,7 +542,7 @@ export default function AdminDashboard() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="party"
@@ -555,7 +565,7 @@ export default function AdminDashboard() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="photoUrl"
@@ -569,7 +579,7 @@ export default function AdminDashboard() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="flex gap-3">
                     <Button
                       type="button"
@@ -582,8 +592,8 @@ export default function AdminDashboard() {
                     >
                       Done
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className="flex-1"
                       data-testid="button-add-candidate"
                       disabled={addCandidateMutation.isPending}
@@ -597,7 +607,7 @@ export default function AdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Edit Candidate Dialog */}
       <Dialog open={!!editingCandidate} onOpenChange={(open) => {
         if (!open) {
@@ -612,7 +622,7 @@ export default function AdminDashboard() {
               Update candidate information
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit((data) => {
               if (editingCandidate) {
@@ -632,7 +642,7 @@ export default function AdminDashboard() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="party"
@@ -655,7 +665,7 @@ export default function AdminDashboard() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="photoUrl"
@@ -669,7 +679,7 @@ export default function AdminDashboard() {
                   </FormItem>
                 )}
               />
-              
+
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -682,8 +692,8 @@ export default function AdminDashboard() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="flex-1"
                   data-testid="button-update-candidate"
                   disabled={updateCandidateMutation.isPending}
@@ -695,7 +705,7 @@ export default function AdminDashboard() {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Candidate Confirmation */}
       <AlertDialog open={!!deletingCandidateId} onOpenChange={(open) => {
         if (!open) setDeletingCandidateId(null);

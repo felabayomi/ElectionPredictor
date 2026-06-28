@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import AdminWatermark from "@/components/AdminWatermark";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus, TrendingUp, Eye, Calendar, ArrowLeft, Users, Pencil, RefreshCw } from "lucide-react";
 import type { FeaturedMatchup, SuggestedMatchup, Race, InsertCandidate, Candidate } from "@shared/schema";
@@ -44,12 +45,12 @@ export default function AdminManage() {
     description: "",
   });
   const [showRaceForm, setShowRaceForm] = useState(false);
-  
+
   const [managingRaceId, setManagingRaceId] = useState<string | null>(null);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
   const [reanalyzingRaceId, setReanalyzingRaceId] = useState<string | null>(null);
-  
+
   const form = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
@@ -58,7 +59,7 @@ export default function AdminManage() {
       photoUrl: "",
     },
   });
-  
+
   const editForm = useForm<InsertCandidate>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
@@ -72,7 +73,7 @@ export default function AdminManage() {
     queryKey: ["/api/featured-matchups"],
   });
 
-  const { data: suggestedMatchupsData, isLoading: loadingSuggested } = useQuery<{suggestions: SuggestedMatchup[], currentEventsContext?: string}>({
+  const { data: suggestedMatchupsData, isLoading: loadingSuggested } = useQuery<{ suggestions: SuggestedMatchup[], currentEventsContext?: string }>({
     queryKey: ["/api/admin/suggested-matchups"],
   });
 
@@ -81,7 +82,7 @@ export default function AdminManage() {
   const { data: racesData = [] } = useQuery<RaceWithData[]>({
     queryKey: ["/api/races"],
   });
-  
+
   const { data: raceCandidates = [], isLoading: loadingCandidates } = useQuery<Candidate[]>({
     queryKey: ["/api/admin/races", managingRaceId, "candidates"],
     enabled: !!managingRaceId,
@@ -98,10 +99,10 @@ export default function AdminManage() {
       toast({ title: "Featured matchup created successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to create matchup", 
+      toast({
+        title: "Failed to create matchup",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -115,10 +116,10 @@ export default function AdminManage() {
       toast({ title: "Featured matchup deleted successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to delete matchup", 
+      toast({
+        title: "Failed to delete matchup",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -131,7 +132,7 @@ export default function AdminManage() {
         .slice(0, 2)
         .map(c => c.name)
         .join(" vs ");
-      
+
       setNewMatchup({
         title: topCandidates || selectedRace.race.title,
         description: selectedRace.race.description || selectedRace.race.title,
@@ -143,7 +144,7 @@ export default function AdminManage() {
   const handleCreateFromSuggestion = (suggestion: SuggestedMatchup) => {
     const candidateNames = suggestion.candidates.map(c => c.name).join(" vs ");
     const url = `/race/${suggestion.race.id}`;
-    
+
     setSelectedRaceId(suggestion.race.id);
     setNewMatchup({
       title: candidateNames,
@@ -151,18 +152,18 @@ export default function AdminManage() {
       url,
     });
 
-    toast({ 
-      title: "Suggestion loaded", 
-      description: "Review and create the featured matchup below" 
+    toast({
+      title: "Suggestion loaded",
+      description: "Review and create the featured matchup below"
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMatchup.title.trim() || !newMatchup.description.trim() || !newMatchup.url.trim()) {
-      toast({ 
-        title: "All fields are required", 
-        variant: "destructive" 
+      toast({
+        title: "All fields are required",
+        variant: "destructive"
       });
       return;
     }
@@ -184,16 +185,16 @@ export default function AdminManage() {
         description: "",
       });
       setShowRaceForm(false);
-      toast({ 
-        title: "Race created successfully!", 
+      toast({
+        title: "Race created successfully!",
         description: "Note: This race won't appear in suggestions until you add candidates to it."
       });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to create race", 
+      toast({
+        title: "Failed to create race",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -207,14 +208,14 @@ export default function AdminManage() {
       toast({ title: "Race deleted successfully" });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Failed to delete race", 
+      toast({
+        title: "Failed to delete race",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
-  
+
   const reanalyzeRaceMutation = useMutation({
     mutationFn: async (id: string) => {
       setReanalyzingRaceId(id);
@@ -223,21 +224,21 @@ export default function AdminManage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/races"] });
       setReanalyzingRaceId(null);
-      toast({ 
+      toast({
         title: "Race reanalyzed successfully",
         description: "Predictions updated based on current candidates"
       });
     },
     onError: (error: any) => {
       setReanalyzingRaceId(null);
-      toast({ 
-        title: "Failed to reanalyze race", 
+      toast({
+        title: "Failed to reanalyze race",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
-  
+
   const addCandidateMutation = useMutation({
     mutationFn: async (data: InsertCandidate) => {
       return apiRequest("POST", `/api/admin/races/${managingRaceId}/candidates`, data);
@@ -252,7 +253,7 @@ export default function AdminManage() {
       toast({ title: "Failed to add candidate", description: error.message, variant: "destructive" });
     },
   });
-  
+
   const updateCandidateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: InsertCandidate }) => {
       return apiRequest("PUT", `/api/admin/candidates/${id}`, data);
@@ -268,7 +269,7 @@ export default function AdminManage() {
       toast({ title: "Failed to update candidate", description: error.message, variant: "destructive" });
     },
   });
-  
+
   const deleteCandidateMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/admin/candidates/${id}`);
@@ -287,9 +288,9 @@ export default function AdminManage() {
   const handleCreateRace = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRace.title.trim() || !newRace.electionDate) {
-      toast({ 
-        title: "Title and election date are required", 
-        variant: "destructive" 
+      toast({
+        title: "Title and election date are required",
+        variant: "destructive"
       });
       return;
     }
@@ -297,7 +298,8 @@ export default function AdminManage() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="container mx-auto p-6 max-w-6xl relative isolate">
+      <AdminWatermark />
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <Link href="/admin/felixdgreat">
@@ -322,8 +324,8 @@ export default function AdminManage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="race-select">Select Race</Label>
-                  <Select 
-                    value={selectedRaceId} 
+                  <Select
+                    value={selectedRaceId}
                     onValueChange={handleRaceSelection}
                   >
                     <SelectTrigger id="race-select" data-testid="select-race">
@@ -341,7 +343,7 @@ export default function AdminManage() {
                     Select a race and the URL will be auto-generated
                   </p>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="title">Matchup Title</Label>
                   <Input
@@ -355,7 +357,7 @@ export default function AdminManage() {
                     Customize how the matchup appears on the homepage
                   </p>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -367,16 +369,16 @@ export default function AdminManage() {
                     rows={2}
                   />
                 </div>
-                
+
                 {newMatchup.url && (
                   <div className="p-3 bg-muted rounded-md">
                     <Label className="text-xs text-muted-foreground">Auto-generated URL</Label>
                     <p className="text-sm font-mono mt-1">{newMatchup.url}</p>
                   </div>
                 )}
-                
-                <Button 
-                  type="submit" 
+
+                <Button
+                  type="submit"
                   className="w-full"
                   data-testid="button-create-matchup"
                   disabled={createMutation.isPending || !selectedRaceId}
@@ -479,7 +481,7 @@ export default function AdminManage() {
                   const candidateNames = suggestion.candidates.map(c => c.name).join(" vs ");
                   const topPrediction = suggestion.predictions[0];
                   const margin = Math.abs(
-                    suggestion.predictions[0].winProbability - 
+                    suggestion.predictions[0].winProbability -
                     suggestion.predictions[1].winProbability
                   );
 
@@ -522,7 +524,7 @@ export default function AdminManage() {
           </CardContent>
         </Card>
       </div>
-      
+
       <Dialog open={!!managingRaceId} onOpenChange={(open) => {
         if (!open) {
           setManagingRaceId(null);
@@ -536,7 +538,7 @@ export default function AdminManage() {
               Add, edit, or remove candidates for this race
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6 pb-2">
             {loadingCandidates ? (
               <p className="text-muted-foreground">Loading candidates...</p>
@@ -597,7 +599,7 @@ export default function AdminManage() {
             ) : (
               <p className="text-sm text-muted-foreground">No candidates yet. Add one below.</p>
             )}
-            
+
             <div className="space-y-4">
               <Label>Add New Candidate</Label>
               <Form {...form}>
@@ -615,7 +617,7 @@ export default function AdminManage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="party"
@@ -638,7 +640,7 @@ export default function AdminManage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="photoUrl"
@@ -652,7 +654,7 @@ export default function AdminManage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="pollingAverage"
@@ -660,20 +662,20 @@ export default function AdminManage() {
                       <FormItem>
                         <FormLabel>Polling Average % (Optional)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="0-100" 
+                          <Input
+                            type="number"
+                            placeholder="0-100"
                             {...field}
                             onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                             value={field.value ?? ''}
-                            data-testid="input-candidate-polling" 
+                            data-testid="input-candidate-polling"
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="fundraisingTotal"
@@ -681,27 +683,27 @@ export default function AdminManage() {
                       <FormItem>
                         <FormLabel>Fundraising Total ($M, Optional)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="Amount in millions" 
+                          <Input
+                            type="number"
+                            placeholder="Amount in millions"
                             {...field}
                             onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                             value={field.value ?? ''}
-                            data-testid="input-candidate-fundraising" 
+                            data-testid="input-candidate-fundraising"
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="isIncumbent"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Is Incumbent? (Optional)</FormLabel>
-                        <Select 
+                        <Select
                           onValueChange={(value) => field.onChange(value === "1" ? 1 : 0)}
                           value={field.value === 1 ? "1" : field.value === 0 ? "0" : undefined}
                         >
@@ -719,7 +721,7 @@ export default function AdminManage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="yearsExperience"
@@ -727,20 +729,20 @@ export default function AdminManage() {
                       <FormItem>
                         <FormLabel>Years of Political Experience (Optional)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="Years" 
+                          <Input
+                            type="number"
+                            placeholder="Years"
                             {...field}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             value={field.value ?? ''}
-                            data-testid="input-candidate-experience" 
+                            data-testid="input-candidate-experience"
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="majorEndorsements"
@@ -748,20 +750,20 @@ export default function AdminManage() {
                       <FormItem>
                         <FormLabel>Major Endorsements (Optional)</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="e.g., Senator X, Union Y" 
+                          <Input
+                            placeholder="e.g., Senator X, Union Y"
                             {...field}
                             value={field.value ?? ''}
-                            data-testid="input-candidate-endorsements" 
+                            data-testid="input-candidate-endorsements"
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
-                  <Button 
-                    type="submit" 
+
+                  <Button
+                    type="submit"
                     className="w-full"
                     data-testid="button-add-candidate"
                     disabled={addCandidateMutation.isPending}
@@ -775,7 +777,7 @@ export default function AdminManage() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       <Dialog open={!!editingCandidate} onOpenChange={(open) => {
         if (!open) {
           setEditingCandidate(null);
@@ -789,7 +791,7 @@ export default function AdminManage() {
               Update candidate information
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit((data) => {
               if (editingCandidate) {
@@ -809,7 +811,7 @@ export default function AdminManage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="party"
@@ -832,7 +834,7 @@ export default function AdminManage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="photoUrl"
@@ -846,7 +848,7 @@ export default function AdminManage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="pollingAverage"
@@ -854,20 +856,20 @@ export default function AdminManage() {
                   <FormItem>
                     <FormLabel>Polling Average % (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="0-100" 
+                      <Input
+                        type="number"
+                        placeholder="0-100"
                         {...field}
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                         value={field.value ?? ''}
-                        data-testid="input-edit-candidate-polling" 
+                        data-testid="input-edit-candidate-polling"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="fundraisingTotal"
@@ -875,27 +877,27 @@ export default function AdminManage() {
                   <FormItem>
                     <FormLabel>Fundraising Total ($M, Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="Amount in millions" 
+                      <Input
+                        type="number"
+                        placeholder="Amount in millions"
                         {...field}
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                         value={field.value ?? ''}
-                        data-testid="input-edit-candidate-fundraising" 
+                        data-testid="input-edit-candidate-fundraising"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="isIncumbent"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Is Incumbent? (Optional)</FormLabel>
-                    <Select 
+                    <Select
                       onValueChange={(value) => field.onChange(value === "1" ? 1 : 0)}
                       value={field.value === 1 ? "1" : field.value === 0 ? "0" : undefined}
                     >
@@ -913,7 +915,7 @@ export default function AdminManage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="yearsExperience"
@@ -921,20 +923,20 @@ export default function AdminManage() {
                   <FormItem>
                     <FormLabel>Years of Political Experience (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder="Years" 
+                      <Input
+                        type="number"
+                        placeholder="Years"
                         {...field}
                         onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                         value={field.value ?? ''}
-                        data-testid="input-edit-candidate-experience" 
+                        data-testid="input-edit-candidate-experience"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={editForm.control}
                 name="majorEndorsements"
@@ -942,18 +944,18 @@ export default function AdminManage() {
                   <FormItem>
                     <FormLabel>Major Endorsements (Optional)</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="e.g., Senator X, Union Y" 
+                      <Input
+                        placeholder="e.g., Senator X, Union Y"
                         {...field}
                         value={field.value ?? ''}
-                        data-testid="input-edit-candidate-endorsements" 
+                        data-testid="input-edit-candidate-endorsements"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -966,8 +968,8 @@ export default function AdminManage() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="flex-1"
                   data-testid="button-update-candidate"
                   disabled={updateCandidateMutation.isPending}
@@ -979,7 +981,7 @@ export default function AdminManage() {
           </Form>
         </DialogContent>
       </Dialog>
-      
+
       <AlertDialog open={!!deletingCandidateId} onOpenChange={(open) => {
         if (!open) setDeletingCandidateId(null);
       }}>

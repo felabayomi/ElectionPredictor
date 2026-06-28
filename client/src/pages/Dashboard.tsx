@@ -7,9 +7,10 @@ import { RaceCard } from "@/components/RaceCard";
 import { MethodologyModal } from "@/components/MethodologyModal";
 import { ShareButton } from "@/components/ShareButton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info, ExternalLink } from "lucide-react";
+import { BarChart3, Info, ExternalLink, Sparkles, Eye } from "lucide-react";
 
 interface RaceWithPredictions {
   race: Race;
@@ -30,7 +31,7 @@ export default function Dashboard() {
   });
 
   const filteredRaces = racesData?.filter(
-    (item) => 
+    (item) =>
       (selectedRaceType === "All" || item.race.type === selectedRaceType) &&
       item.candidates.length > 0 &&
       item.predictions.length > 0
@@ -42,8 +43,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card sticky top-0 z-10">
+    <div className="min-h-screen bg-slate-50/40">
+      <header className="border-b bg-white sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
@@ -51,11 +52,15 @@ export default function Dashboard() {
                 <BarChart3 className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">ElectionPredict</h1>
-                <p className="text-sm text-muted-foreground">AI-Powered Election Analysis</p>
+                <h1 className="text-2xl font-bold">ElectionPredict Public View</h1>
+                <p className="text-sm text-muted-foreground">Read-only election analysis for viewers</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="hidden sm:inline-flex">
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                Public Read-Only
+              </Badge>
               <Button
                 variant="outline"
                 size="sm"
@@ -76,6 +81,14 @@ export default function Dashboard() {
           <p className="text-muted-foreground">
             View comprehensive election analysis and predictions powered by AI
           </p>
+          <div className="mt-4">
+            <Link href="/subscriber-studio">
+              <Button variant="outline" data-testid="button-subscriber-studio">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Subscriber Studio
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <Tabs defaultValue="all" className="mb-8">
@@ -212,12 +225,12 @@ export default function Dashboard() {
                     <RaceCard
                       key={race.id}
                       race={race}
-                    leadingCandidate={leadingItem?.candidate?.name}
-                    leadingProbability={leadingItem?.prediction?.winProbability}
-                    candidateCount={candidates.length}
-                  />
-                );
-              })}
+                      leadingCandidate={leadingItem?.candidate?.name}
+                      leadingProbability={leadingItem?.prediction?.winProbability}
+                      candidateCount={candidates.length}
+                    />
+                  );
+                })}
               </div>
             ) : (
               <Card className="bg-muted/50">

@@ -10,6 +10,7 @@ import type {
   Party,
   FeaturedMatchup,
   InsertFeaturedMatchup,
+  SubscriberSubscription,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -17,7 +18,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   getAllCandidates(): Promise<Candidate[]>;
   getCandidate(id: string): Promise<Candidate | undefined>;
   getCandidatesByRace(raceId: string): Promise<Candidate[]>;
@@ -25,24 +26,33 @@ export interface IStorage {
   createCandidate(candidate: InsertCandidate, raceId: string): Promise<Candidate>;
   updateCandidate(id: string, updates: Partial<InsertCandidate>): Promise<Candidate>;
   deleteCandidate(id: string): Promise<void>;
-  
+
   getAllRaces(): Promise<Race[]>;
   getRace(id: string): Promise<Race | undefined>;
   incrementRaceViews(raceId: string): Promise<void>;
   createRace(race: InsertRace): Promise<Race>;
   updateRace(id: string, updates: Partial<InsertRace>): Promise<Race>;
   deleteRace(id: string): Promise<void>;
-  
+
   getPrediction(raceId: string, candidateId: string): Promise<Prediction | undefined>;
   getPredictionsByRace(raceId: string): Promise<Prediction[]>;
   createPrediction(prediction: Prediction): Promise<void>;
   updatePrediction(prediction: Prediction): Promise<void>;
-  
+
   getAllFeaturedMatchups(): Promise<FeaturedMatchup[]>;
   createFeaturedMatchup(matchup: InsertFeaturedMatchup): Promise<FeaturedMatchup>;
   updateFeaturedMatchup(id: string, updates: Partial<InsertFeaturedMatchup>): Promise<FeaturedMatchup>;
   deleteFeaturedMatchup(id: string): Promise<void>;
   updateFeaturedMatchupOrder(id: string, newOrder: number): Promise<void>;
+
+  getSubscriptionByEmail(email: string): Promise<SubscriberSubscription | undefined>;
+  upsertSubscriptionByEmail(email: string, updates: {
+    status: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    stripePriceId?: string;
+    currentPeriodEnd?: Date;
+  }): Promise<SubscriberSubscription>;
 }
 
 export class DbStorage implements IStorage {
@@ -134,7 +144,7 @@ export class DbStorage implements IStorage {
       .from(raceCandidates)
       .innerJoin(candidates, eq(raceCandidates.candidateId, candidates.id))
       .where(eq(raceCandidates.raceId, raceId));
-    
+
     return results.map((r: any) => ({
       id: r.id,
       name: r.name,
@@ -173,7 +183,7 @@ export class DbStorage implements IStorage {
       .innerJoin(candidates, eq(raceCandidates.candidateId, candidates.id))
       .innerJoin(races, eq(raceCandidates.raceId, races.id))
       .where(and(eq(races.type, "Senate"), eq(races.state, "New York")));
-    
+
     return results.map((r: any) => ({
       id: r.id,
       name: r.name,
@@ -194,12 +204,12 @@ export class DbStorage implements IStorage {
     const { candidates, raceCandidates } = await import("@shared/schema");
     const result = await this.db.insert(candidates).values(insertCandidate).returning();
     const candidate = result[0];
-    
+
     await this.db.insert(raceCandidates).values({
       raceId,
       candidateId: candidate.id,
     });
-    
+
     return {
       id: candidate.id,
       name: candidate.name,
@@ -244,7 +254,7 @@ export class DbStorage implements IStorage {
   async deleteCandidate(id: string): Promise<void> {
     const { candidates, raceCandidates, predictions } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
-    
+
     await this.db.delete(predictions).where(eq(predictions.candidateId, id));
     await this.db.delete(raceCandidates).where(eq(raceCandidates.candidateId, id));
     await this.db.delete(candidates).where(eq(candidates.id, id));
@@ -346,7 +356,7 @@ export class DbStorage implements IStorage {
       .from(predictions)
       .where(and(eq(predictions.raceId, raceId), eq(predictions.candidateId, candidateId)))
       .limit(1);
-    
+
     if (!result[0]) return undefined;
     const p = result[0];
     return {
@@ -368,7 +378,7 @@ export class DbStorage implements IStorage {
     const { predictions } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
     const results = await this.db.select().from(predictions).where(eq(predictions.raceId, raceId));
-    
+
     return results.map((p: any) => ({
       raceId: p.raceId,
       candidateId: p.candidateId,
@@ -443,12 +453,12 @@ export class DbStorage implements IStorage {
     const { featuredMatchups } = await import("@shared/schema");
     const existingMatchups = await this.getAllFeaturedMatchups();
     const displayOrder = matchup.displayOrder ?? existingMatchups.length;
-    
+
     const result = await this.db.insert(featuredMatchups).values({
       ...matchup,
       displayOrder,
     }).returning();
-    
+
     const m = result[0];
     return {
       id: m.id,
@@ -463,13 +473,13 @@ export class DbStorage implements IStorage {
   async updateFeaturedMatchup(id: string, updates: Partial<InsertFeaturedMatchup>): Promise<FeaturedMatchup> {
     const { featuredMatchups } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
-    
+
     const result = await this.db
       .update(featuredMatchups)
       .set(updates)
       .where(eq(featuredMatchups.id, id))
       .returning();
-    
+
     const m = result[0];
     return {
       id: m.id,
@@ -491,6 +501,81 @@ export class DbStorage implements IStorage {
     const { featuredMatchups } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
     await this.db.update(featuredMatchups).set({ displayOrder: newOrder }).where(eq(featuredMatchups.id, id));
+  }
+
+  async getSubscriptionByEmail(email: string): Promise<SubscriberSubscription | undefined> {
+    const { subscriberSubscriptions } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const result = await this.db
+      .select()
+      .from(subscriberSubscriptions)
+      .where(eq(subscriberSubscriptions.email, email.toLowerCase()))
+      .limit(1);
+
+    const row = result[0];
+    if (!row) return undefined;
+
+    return {
+      id: row.id,
+      email: row.email,
+      status: row.status,
+      stripeCustomerId: row.stripeCustomerId || undefined,
+      stripeSubscriptionId: row.stripeSubscriptionId || undefined,
+      stripePriceId: row.stripePriceId || undefined,
+      currentPeriodEnd: row.currentPeriodEnd ? row.currentPeriodEnd.toISOString() : undefined,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  async upsertSubscriptionByEmail(
+    email: string,
+    updates: {
+      status: string;
+      stripeCustomerId?: string;
+      stripeSubscriptionId?: string;
+      stripePriceId?: string;
+      currentPeriodEnd?: Date;
+    },
+  ): Promise<SubscriberSubscription> {
+    const { subscriberSubscriptions } = await import("@shared/schema");
+
+    const result = await this.db
+      .insert(subscriberSubscriptions)
+      .values({
+        email: email.toLowerCase(),
+        status: updates.status,
+        stripeCustomerId: updates.stripeCustomerId,
+        stripeSubscriptionId: updates.stripeSubscriptionId,
+        stripePriceId: updates.stripePriceId,
+        currentPeriodEnd: updates.currentPeriodEnd,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [subscriberSubscriptions.email],
+        set: {
+          status: updates.status,
+          stripeCustomerId: updates.stripeCustomerId,
+          stripeSubscriptionId: updates.stripeSubscriptionId,
+          stripePriceId: updates.stripePriceId,
+          currentPeriodEnd: updates.currentPeriodEnd,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    const row = result[0];
+    return {
+      id: row.id,
+      email: row.email,
+      status: row.status,
+      stripeCustomerId: row.stripeCustomerId || undefined,
+      stripeSubscriptionId: row.stripeSubscriptionId || undefined,
+      stripePriceId: row.stripePriceId || undefined,
+      currentPeriodEnd: row.currentPeriodEnd ? row.currentPeriodEnd.toISOString() : undefined,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 }
 
