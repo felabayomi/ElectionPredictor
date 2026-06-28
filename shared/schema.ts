@@ -3,13 +3,13 @@ import { pgTable, text, varchar, integer, doublePrecision, timestamp, jsonb, pri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+export const users = pgTable("ep_users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
 });
 
-export const races = pgTable("races", {
+export const races = pgTable("ep_races", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   type: varchar("type", { length: 20 }).notNull(),
   title: text("title").notNull(),
@@ -20,7 +20,7 @@ export const races = pgTable("races", {
   viewCount: integer("view_count").default(0),
 });
 
-export const candidates = pgTable("candidates", {
+export const candidates = pgTable("ep_candidates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   party: varchar("party", { length: 20 }).notNull(),
@@ -45,7 +45,7 @@ export const candidates = pgTable("candidates", {
   electionType: varchar("election_type", { length: 20 }),
 });
 
-export const predictions = pgTable("predictions", {
+export const predictions = pgTable("ep_predictions", {
   raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
   candidateId: varchar("candidate_id").notNull().references(() => candidates.id, { onDelete: 'cascade' }),
   winProbability: doublePrecision("win_probability").notNull(),
@@ -59,7 +59,7 @@ export const predictions = pgTable("predictions", {
   pk: primaryKey({ columns: [table.raceId, table.candidateId] })
 }));
 
-export const predictionSources = pgTable("prediction_sources", {
+export const predictionSources = pgTable("ep_prediction_sources", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
   candidateId: varchar("candidate_id").references(() => candidates.id, { onDelete: 'set null' }),
@@ -72,14 +72,14 @@ export const predictionSources = pgTable("prediction_sources", {
   summary: text("summary").notNull(),
 });
 
-export const raceCandidates = pgTable("race_candidates", {
+export const raceCandidates = pgTable("ep_race_candidates", {
   raceId: varchar("race_id").notNull().references(() => races.id, { onDelete: 'cascade' }),
   candidateId: varchar("candidate_id").notNull().references(() => candidates.id, { onDelete: 'cascade' }),
 }, (table) => ({
   pk: primaryKey({ columns: [table.raceId, table.candidateId] })
 }));
 
-export const featuredMatchups = pgTable("featured_matchups", {
+export const featuredMatchups = pgTable("ep_featured_matchups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -88,7 +88,7 @@ export const featuredMatchups = pgTable("featured_matchups", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const subscriberSubscriptions = pgTable("subscriber_subscriptions", {
+export const subscriberSubscriptions = pgTable("ep_subscriber_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   status: text("status").notNull().default("inactive"),
