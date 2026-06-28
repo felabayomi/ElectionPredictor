@@ -255,6 +255,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { race, candidates, predictions };
         })
       );
+
+      // New races should appear first: sort by most recent prediction update,
+      // then fall back to election date for races without predictions.
+      racesWithPredictions.sort((a, b) => {
+        const latestA = a.predictions.reduce((max, p) => {
+          const t = Date.parse(p.lastUpdated);
+          return Number.isNaN(t) ? max : Math.max(max, t);
+        }, 0);
+
+        const latestB = b.predictions.reduce((max, p) => {
+          const t = Date.parse(p.lastUpdated);
+          return Number.isNaN(t) ? max : Math.max(max, t);
+        }, 0);
+
+        if (latestA !== latestB) {
+          return latestB - latestA;
+        }
+
+        const electionA = Date.parse(a.race.electionDate);
+        const electionB = Date.parse(b.race.electionDate);
+        return (Number.isNaN(electionB) ? 0 : electionB) - (Number.isNaN(electionA) ? 0 : electionA);
+      });
+
       res.json(racesWithPredictions);
     } catch (error) {
       console.error("Error fetching races:", error);
