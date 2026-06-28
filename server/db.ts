@@ -5,7 +5,8 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-const connectionString = process.env.ELECTION_PREDICTOR_NEON_DATABASE_URL || process.env.DATABASE_URL;
+// Keep runtime DB selection aligned with migration/check scripts that use DATABASE_URL.
+const connectionString = process.env.DATABASE_URL || process.env.ELECTION_PREDICTOR_NEON_DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
