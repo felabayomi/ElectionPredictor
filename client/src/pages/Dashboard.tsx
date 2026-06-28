@@ -25,7 +25,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [methodologyOpen, setMethodologyOpen] = useState(false);
 
-  const { data: racesData, isLoading } = useQuery<RaceWithPredictions[]>({
+  const { data: racesData, isLoading, error: racesError } = useQuery<RaceWithPredictions[]>({
     queryKey: ["/api/races"],
   });
 
@@ -37,17 +37,16 @@ export default function Dashboard() {
 
   const filteredRaces = racesData?.filter((item) => {
     const inSelectedType = selectedRaceType === "All" || item.race.type === selectedRaceType;
-    const hasAnalysis = item.candidates.length > 0 && item.predictions.length > 0;
 
     if (!normalizedSearch) {
-      return inSelectedType && hasAnalysis;
+      return inSelectedType;
     }
 
     const raceText = `${item.race.title} ${item.race.type}`.toLowerCase();
     const candidateText = item.candidates.map((c) => c.name.toLowerCase()).join(" ");
     const matchesSearch = raceText.includes(normalizedSearch) || candidateText.includes(normalizedSearch);
 
-    return inSelectedType && hasAnalysis && matchesSearch;
+    return inSelectedType && matchesSearch;
   });
 
   const getFeaturedRaces = () => {
@@ -233,6 +232,13 @@ export default function Dashboard() {
               </Card>
             ))}
           </div>
+        ) : racesError ? (
+          <Card className="bg-destructive/5 border-destructive/30">
+            <CardContent className="py-8 text-center">
+              <p className="font-medium text-destructive mb-2">Unable to load races right now.</p>
+              <p className="text-sm text-muted-foreground">Please refresh the page in a few seconds.</p>
+            </CardContent>
+          </Card>
         ) : (
           <>
             <div className="mb-6">
