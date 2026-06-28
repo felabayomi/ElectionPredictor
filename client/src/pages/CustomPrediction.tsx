@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Party, Candidate, Prediction } from "@shared/schema";
+import type { Party, Candidate, Prediction, RaceType } from "@shared/schema";
 import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -33,6 +33,7 @@ export default function CustomPrediction() {
     { name: "", party: "Republican" },
   ]);
   const [raceTitle, setRaceTitle] = useState("");
+  const [raceType, setRaceType] = useState<"" | RaceType>("");
   const [showCreateWarning, setShowCreateWarning] = useState(false);
 
   const analyzeMutation = useMutation({
@@ -46,12 +47,17 @@ export default function CustomPrediction() {
         throw new Error("Please enter at least 2 candidates");
       }
 
+      if (!raceType) {
+        throw new Error("Please select a race type");
+      }
+
       const result = await apiRequest<AnalysisResult>(
         "POST",
         "/api/custom-prediction",
         {
           candidates: validCandidates,
           raceTitle: raceTitle.trim() || "Custom Race Analysis",
+          raceType,
         }
       );
       return result;
@@ -130,6 +136,21 @@ export default function CustomPrediction() {
                   data-testid="input-race-title"
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Race Type</label>
+                <Select value={raceType} onValueChange={(value) => setRaceType(value as RaceType)}>
+                  <SelectTrigger data-testid="select-race-type">
+                    <SelectValue placeholder="Select race type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Presidential">Presidential</SelectItem>
+                    <SelectItem value="Senate">Senate</SelectItem>
+                    <SelectItem value="House">House</SelectItem>
+                    <SelectItem value="Governor">Governor</SelectItem>
+                    <SelectItem value="Local">Local</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -202,7 +223,7 @@ export default function CustomPrediction() {
 
             <Button
               onClick={handleAnalyze}
-              disabled={analyzeMutation.isPending || candidates.filter((c) => c.name.trim()).length < 2}
+              disabled={analyzeMutation.isPending || candidates.filter((c) => c.name.trim()).length < 2 || !raceType}
               className="w-full mt-6"
               data-testid="button-analyze"
             >

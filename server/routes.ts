@@ -2,7 +2,7 @@ import type { Express, NextFunction, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateComparisonInsights, generateCustomPrediction, analyzeNaturalLanguageQuery, generateIntelligentSuggestions, reanalyzeRace } from "./openai";
-import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, SuggestedMatchup } from "@shared/schema";
+import type { ComparisonResult, PredictionFactors, Candidate, Prediction, Race, Party, RaceType, SuggestedMatchup } from "@shared/schema";
 import { insertFeaturedMatchupSchema, insertRaceSchema, insertCandidateSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import Stripe from "stripe";
@@ -16,6 +16,18 @@ function normalizeEmail(value: unknown): string {
 
 function hasActiveSubscription(status?: string): boolean {
   return status === "active" || status === "trialing";
+}
+
+function inferRaceTypeFromText(input: string): RaceType {
+  const text = input.toLowerCase();
+
+  if (/president|presidential|white\s+house/.test(text)) return "Presidential";
+  if (/senate|senator/.test(text)) return "Senate";
+  if (/house|congressional|representative\b/.test(text)) return "House";
+  if (/governor|gubernatorial/.test(text)) return "Governor";
+  if (/mayor|city\s+council|county|school\s+board|local/.test(text)) return "Local";
+
+  return "Local";
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -615,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/custom-prediction", requireSubscriberAccess, async (req, res) => {
     try {
-      const { candidates, raceTitle } = req.body;
+      const { candidates, raceTitle, raceType } = req.body;
 
       if (!candidates || !Array.isArray(candidates)) {
         return res.status(400).json({ error: "Candidates array is required" });
@@ -638,12 +650,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "All candidates must be different" });
       }
 
+      const allowedRaceTypes: RaceType[] = ["Presidential", "Senate", "House", "Governor", "Local"];
+      if (!raceType || !allowedRaceTypes.includes(raceType)) {
+        return res.status(400).json({
+          error: "Race type is required",
+          details: "Select Presidential, Senate, House, Governor, or Local",
+        });
+      }
+
       const result = await generateCustomPrediction(normalizedCandidates, raceTitle?.trim() || "Custom Race");
 
       const raceId = randomUUID();
       const race: Race = {
         id: raceId,
-        type: "Senate",
+        type: raceType,
         title: (raceTitle?.trim() || "Custom Race Analysis"),
         electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         description: "Custom race created via manual candidate entry",
@@ -739,9 +759,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       const raceId = randomUUID();
+      const inferredRaceType = inferRaceTypeFromText(`${query} ${result.raceTitle}`);
       const race: Race = {
         id: raceId,
-        type: "Senate",
+        type: inferredRaceType,
         title: result.raceTitle,
         electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         description: `AI-generated analysis from query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`,
