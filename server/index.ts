@@ -16,6 +16,17 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+app.use((req, _res, next) => {
+  // Some platform proxies prepend '/api/election-predictor' to this app.
+  // Normalize those requests so existing '/api/*' routes keep working.
+  if (req.url.startsWith("/api/election-predictor/api/")) {
+    req.url = req.url.replace("/api/election-predictor/api/", "/api/");
+  } else if (req.url.startsWith("/api/election-predictor/")) {
+    req.url = req.url.replace("/api/election-predictor/", "/api/");
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
