@@ -475,7 +475,6 @@ export default function AdminDashboard() {
                     leadingCandidate={leadingItem?.candidate?.name}
                     leadingProbability={leadingItem?.prediction?.winProbability}
                     leadingDataQualityScore={leadingItem?.prediction?.dataQualityScore}
-                    hasRecentPolling={leadingItem?.prediction?.hasRecentPolling}
                     candidateCount={candidates.length}
                     lastCheckedAt={lastCheckedAt}
                     onEdit={(id, title, raceType) => updateRaceMutation.mutate({ id, title, raceType })}

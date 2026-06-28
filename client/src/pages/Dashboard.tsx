@@ -273,7 +273,6 @@ export default function Dashboard() {
                       leadingCandidate={leadingItem?.candidate?.name}
                       leadingProbability={leadingItem?.prediction?.winProbability}
                       leadingDataQualityScore={leadingItem?.prediction?.dataQualityScore}
-                      hasRecentPolling={leadingItem?.prediction?.hasRecentPolling}
                       candidateCount={candidates.length}
                       lastCheckedAt={lastCheckedAt}
                     />

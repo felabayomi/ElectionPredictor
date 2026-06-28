@@ -10,7 +10,6 @@ interface RaceSummaryCardProps {
     leadingCandidate?: string;
     leadingProbability?: number;
     leadingDataQualityScore?: number;
-    hasRecentPolling?: boolean;
     candidateCount?: number;
     lastCheckedAt?: string;
 }
@@ -27,7 +26,7 @@ function getAbsoluteUrl(path: string): string {
     }
 }
 
-export function RaceSummaryCard({ race, leadingCandidate, leadingProbability, leadingDataQualityScore, hasRecentPolling, candidateCount, lastCheckedAt }: RaceSummaryCardProps) {
+export function RaceSummaryCard({ race, leadingCandidate, leadingProbability, leadingDataQualityScore, candidateCount, lastCheckedAt }: RaceSummaryCardProps) {
     const racePath = `/race/${race.id}`;
     const shareUrl = getAbsoluteUrl(racePath);
     const formattedLastCheckedAt = lastCheckedAt
@@ -71,21 +70,16 @@ export function RaceSummaryCard({ race, leadingCandidate, leadingProbability, le
                 </p>
             )}
 
-            {(leadingDataQualityScore != null || hasRecentPolling != null || formattedLastCheckedAt) && (
+            {(leadingDataQualityScore != null || formattedLastCheckedAt) && (
                 <div className="flex flex-wrap gap-2">
                     {leadingDataQualityScore != null && (
                         <Badge variant={leadingDataQualityScore >= 75 ? "default" : leadingDataQualityScore >= 50 ? "secondary" : "destructive"}>
                             Data quality: {leadingDataQualityScore}/100
                         </Badge>
                     )}
-                    {hasRecentPolling != null && (
-                        <Badge variant={hasRecentPolling ? "default" : "secondary"}>
-                            {hasRecentPolling ? "Recent polling" : "No recent polling"}
-                        </Badge>
-                    )}
                     {formattedLastCheckedAt && (
                         <Badge variant="outline">
-                            Last checked {formattedLastCheckedAt}
+                            Last updated {formattedLastCheckedAt}
                         </Badge>
                     )}
                 </div>

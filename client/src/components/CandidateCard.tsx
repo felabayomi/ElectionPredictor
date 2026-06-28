@@ -55,11 +55,13 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
         : "destructive"
     : "secondary";
 
-  const pollingFreshnessLabel = prediction?.hasRecentPolling
-    ? prediction.pollingFreshnessDays != null
-      ? `Recent polling: ${prediction.pollingFreshnessDays}d`
-      : "Recent polling"
-    : "No recent polling";
+  const formattedLastUpdated = prediction?.lastUpdated
+    ? new Date(prediction.lastUpdated).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+    : null;
 
   return (
     <Card className="hover-elevate transition-all" data-testid={`card-candidate-${candidate.id}`}>
@@ -106,9 +108,11 @@ export function CandidateCard({ candidate, prediction, onViewDetails, compact = 
                 Data quality: {prediction.dataQualityScore}/100
               </Badge>
             )}
-            <Badge variant={prediction.hasRecentPolling ? "default" : "secondary"}>
-              {pollingFreshnessLabel}
-            </Badge>
+            {formattedLastUpdated && (
+              <Badge variant="outline">
+                Last updated {formattedLastUpdated}
+              </Badge>
+            )}
             {prediction.hasRecentFundraising != null && (
               <Badge variant={prediction.hasRecentFundraising ? "default" : "secondary"}>
                 {prediction.hasRecentFundraising ? "Recent fundraising" : "No recent fundraising"}

@@ -11,7 +11,6 @@ interface RaceCardProps {
   leadingCandidate?: string;
   leadingProbability?: number;
   leadingDataQualityScore?: number;
-  hasRecentPolling?: boolean;
   candidateCount?: number;
   lastCheckedAt?: string;
   onDelete?: (id: string) => void;
@@ -31,7 +30,7 @@ const raceTypeColors: Record<RaceType, string> = {
   Local: "bg-chart-5 text-white",
 };
 
-export function RaceCard({ race, leadingCandidate, leadingProbability, leadingDataQualityScore, hasRecentPolling, candidateCount, lastCheckedAt, onDelete, deleteDisabled, onEdit, editDisabled, onReanalyze, reanalyzeDisabled, onManageCandidates }: RaceCardProps) {
+export function RaceCard({ race, leadingCandidate, leadingProbability, leadingDataQualityScore, candidateCount, lastCheckedAt, onDelete, deleteDisabled, onEdit, editDisabled, onReanalyze, reanalyzeDisabled, onManageCandidates }: RaceCardProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(race.title);
   const [editedRaceType, setEditedRaceType] = useState<RaceType>(race.type);
@@ -74,7 +73,6 @@ export function RaceCard({ race, leadingCandidate, leadingProbability, leadingDa
             leadingCandidate={leadingCandidate}
             leadingProbability={leadingProbability}
             leadingDataQualityScore={leadingDataQualityScore}
-            hasRecentPolling={hasRecentPolling}
             candidateCount={candidateCount}
             lastCheckedAt={lastCheckedAt}
           />
