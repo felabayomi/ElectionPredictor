@@ -35,11 +35,18 @@ interface ReanalysisResponse {
   reanalyzedAt: string;
   summary?: string;
   mode?: "ai" | "fallback" | "unknown";
+  model?: string | null;
   fallbackReason?: string | null;
   changeSummary?: {
     changedCandidates: number;
     unchangedCandidates: number;
     maxDelta: number;
+  };
+  aiVerification?: {
+    allFactorsPresent?: boolean;
+    probabilitiesUnique?: boolean;
+    probabilitiesApproximately100?: boolean;
+    probabilitySum?: number;
   };
   analysis?: string;
   scorecards?: ReanalysisAuditData["scorecards"];
@@ -286,10 +293,14 @@ export default function AdminManage() {
         : result.mode === "ai"
           ? "AI mode."
           : "Mode unknown.";
+      const verification = result.aiVerification
+        ? `Checks: factors ${result.aiVerification.allFactorsPresent ? "ok" : "incomplete"}, unique probs ${result.aiVerification.probabilitiesUnique ? "yes" : "no"}, sum≈100 ${result.aiVerification.probabilitiesApproximately100 ? "yes" : `no (${result.aiVerification.probabilitySum ?? "n/a"})`}.`
+        : "Checks unavailable.";
+      const modelLabel = result.model ? `Model ${result.model}.` : "Model unavailable.";
 
       toast({
         title: "Race reanalyzed successfully",
-        description: `${modeLabel} ${movement}`
+        description: `${modelLabel} ${modeLabel} ${verification} ${movement}`
       });
     },
     onError: (error: unknown) => {
