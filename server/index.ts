@@ -22,14 +22,20 @@ app.use((req, _res, next) => {
   // Some platform proxies prepend '/api/election-predictor' to this app.
   // Normalize those requests so existing '/api/*' routes keep working.
   const originalUrl = req.originalUrl || req.url;
+  const originalPath = req.path;
+  
+  console.log(`[MIDDLEWARE] Incoming ${req.method} ${originalUrl} (path: ${originalPath})`);
   
   // Check if the request path starts with /api/election-predictor/
-  if (req.path.startsWith("/api/election-predictor/")) {
+  if (originalPath.startsWith("/api/election-predictor/")) {
     // Strip the prefix
-    const newPath = req.path.slice("/api/election-predictor".length); // Keep the leading /
+    const newPath = originalPath.slice("/api/election-predictor".length); // Keep the leading /
     req.url = newPath + (req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "");
-    console.log(`[PREFIX-STRIP] ${originalUrl} -> ${req.url}`);
+    console.log(`[PREFIX-STRIP] SUCCESS: ${originalPath} -> ${newPath}`);
+  } else {
+    console.log(`[PREFIX-STRIP] SKIPPED: path does not start with /api/election-predictor/`);
   }
+  
   next();
 });
 
