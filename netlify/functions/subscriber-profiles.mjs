@@ -42,17 +42,20 @@ export async function handler(event) {
 
             // Check subscription status
             const subscriptions = await sql(
-                "SELECT status FROM ep_subscriber_subscriptions WHERE email = $1",
+                "SELECT * FROM ep_subscriber_subscriptions WHERE email = $1",
                 [email]
             );
-            console.log("Subscription lookup result:", subscriptions);
+            console.log("Subscription lookup for", email, ":", subscriptions);
             const subscription = subscriptions[0];
+            console.log("Subscription record:", subscription);
+            console.log("Subscription status:", subscription?.status);
             const isActive = subscription && (subscription.status === "active" || subscription.status === "trialing");
 
             if (!isActive) {
-                console.log("Subscription not active for:", email);
+                console.log("Subscription not active for:", email, "Status was:", subscription?.status);
                 return json(402, {
                     error: "Active subscription required",
+                    debug: { email, subscriptionFound: !!subscription, status: subscription?.status },
                 });
             }
 
