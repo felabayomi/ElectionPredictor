@@ -27,6 +27,7 @@ function getSubscriberHeader(url: string): Record<string, string> {
     "/api/custom-prediction",
     "/api/natural-language-analysis",
     "/api/subscriber/",
+    "/api/subscriber-profiles",
   ];
   if (!subscriberOnlyPrefixes.some((prefix) => url.startsWith(prefix))) {
     return {};
