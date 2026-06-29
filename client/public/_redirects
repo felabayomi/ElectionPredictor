@@ -2,5 +2,5 @@
 /api/custom-prediction  /.netlify/functions/scenario/custom-prediction  200
 /api/natural-language-analysis  /.netlify/functions/scenario/natural-language-analysis  200
 /api/subscriber/races/*/reanalyze  /.netlify/functions/scenario/subscriber/races/:splat/reanalyze  200
-/api/*  https://felix-platform-backend.onrender.com/api/election-predictor/:splat  200
+/api/*  https://felix-platform-backend.onrender.com/api/:splat  200
 /*  /index.html  200
