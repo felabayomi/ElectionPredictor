@@ -203,14 +203,33 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          <div>
-            <Link href="/subscriber-studio">
-              <Button variant="outline" data-testid="button-subscriber-studio">
-                <Sparkles className="h-4 w-4 mr-2" />
-                Subscriber Studio
-              </Button>
-            </Link>
-          </div>
+          <Card className="relative overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-cyan-50 shadow-sm">
+            <CardContent className="py-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-2">
+                  <Badge className="inline-flex items-center gap-1 bg-blue-600 text-white hover:bg-blue-600">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    New for subscribers
+                  </Badge>
+                  <p className="text-base font-semibold text-slate-900 sm:text-lg">
+                    Unlock Subscriber Studio for deeper forecasts and private race tools
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Save profiles, generate race scenarios, and manage your own prediction workflows.
+                  </p>
+                </div>
+                <Link href="/subscriber-studio">
+                  <Button
+                    className="w-full bg-blue-600 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 sm:w-auto"
+                    data-testid="button-subscriber-studio"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Explore Subscriber Studio
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs
