@@ -139,8 +139,8 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="space-y-6 mb-10">
           <h2 className="text-4xl font-bold mb-2">Election Predictions</h2>
           <p className="text-muted-foreground">
             View comprehensive election analysis and predictions powered by AI
@@ -203,7 +203,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          <div className="mt-4">
+          <div>
             <Link href="/subscriber-studio">
               <Button variant="outline" data-testid="button-subscriber-studio">
                 <Sparkles className="h-4 w-4 mr-2" />
@@ -216,26 +216,26 @@ export default function Dashboard() {
         <Tabs
           value={tabValueByRaceType[selectedRaceType]}
           onValueChange={(value) => setSelectedRaceType(raceTypeByTabValue[value] || "All")}
-          className="mb-8"
+          className="mb-10"
         >
-          <div className="sticky top-[72px] z-30 rounded-xl border border-slate-200 bg-white/90 p-3 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
-              <TabsTrigger value="all" data-testid="tab-all">
+          <div className="sticky top-[72px] z-30 rounded-xl border border-slate-200 bg-white/90 p-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 focus-within:ring-2 focus-within:ring-primary/25">
+            <TabsList className="scrollbar-none flex w-full snap-x snap-mandatory gap-1 overflow-x-auto p-1 sm:grid sm:grid-cols-6 sm:gap-0 sm:overflow-visible">
+              <TabsTrigger value="all" className="min-w-[128px] snap-start sm:min-w-0" data-testid="tab-all">
                 All Races
               </TabsTrigger>
-              <TabsTrigger value="presidential" data-testid="tab-presidential">
+              <TabsTrigger value="presidential" className="min-w-[128px] snap-start sm:min-w-0" data-testid="tab-presidential">
                 Presidential
               </TabsTrigger>
-              <TabsTrigger value="senate" data-testid="tab-senate">
+              <TabsTrigger value="senate" className="min-w-[128px] snap-start sm:min-w-0" data-testid="tab-senate">
                 Senate
               </TabsTrigger>
-              <TabsTrigger value="house" data-testid="tab-house">
+              <TabsTrigger value="house" className="min-w-[128px] snap-start sm:min-w-0" data-testid="tab-house">
                 House
               </TabsTrigger>
-              <TabsTrigger value="governor" data-testid="tab-governor">
+              <TabsTrigger value="governor" className="min-w-[128px] snap-start sm:min-w-0" data-testid="tab-governor">
                 Governor
               </TabsTrigger>
-              <TabsTrigger value="local" data-testid="tab-local">
+              <TabsTrigger value="local" className="min-w-[128px] snap-start sm:min-w-0" data-testid="tab-local">
                 Local
               </TabsTrigger>
             </TabsList>
@@ -250,7 +250,7 @@ export default function Dashboard() {
           </div>
         </Tabs>
 
-        <div className="mb-8">
+        <div className="mb-10">
           <div className="mb-4">
             <h3 className="text-2xl font-semibold mb-1">Featured Matchups</h3>
             <p className="text-sm text-muted-foreground">
