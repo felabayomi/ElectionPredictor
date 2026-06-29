@@ -42,12 +42,61 @@ async function fetchBackend(path, method, body, headers) {
   };
 }
 
+async function resolveRaceTableAndColumns(sql) {
+  const tableCandidates = ["ep_races", "races"];
+
+  for (const tableName of tableCandidates) {
+    const exists = await sql(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1",
+      [tableName],
+    );
+    if (!exists.length) continue;
+
+    const columns = await sql(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1",
+      [tableName],
+    );
+    const names = new Set(columns.map((row) => row.column_name));
+
+    const createdColumnCandidates = ["created_at", "createdat", "createdAt"];
+    const creatorColumnCandidates = [
+      "created_by_email",
+      "createdbyemail",
+      "createdByEmail",
+      "subscriber_email",
+      "owner_email",
+      "created_by",
+    ];
+
+    const createdColumn = createdColumnCandidates.find((name) => names.has(name));
+    const creatorColumn = creatorColumnCandidates.find((name) => names.has(name));
+
+    return { tableName, createdColumn, creatorColumn };
+  }
+
+  return null;
+}
+
+function quoteIdentifier(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
 async function enrichRaceRows(sql, raceIds) {
   if (!raceIds.length) return [];
-  const rows = await sql(
-    "SELECT id, created_at, created_by_email FROM ep_races WHERE id = ANY($1::text[])",
-    [raceIds],
-  );
+
+  const resolved = await resolveRaceTableAndColumns(sql);
+  if (!resolved) return [];
+
+  const selectParts = ["id"];
+  if (resolved.createdColumn) {
+    selectParts.push(`${quoteIdentifier(resolved.createdColumn)} AS created_at`);
+  }
+  if (resolved.creatorColumn) {
+    selectParts.push(`${quoteIdentifier(resolved.creatorColumn)} AS created_by_email`);
+  }
+
+  const query = `SELECT ${selectParts.join(", ")} FROM ${quoteIdentifier(resolved.tableName)} WHERE id = ANY($1::text[])`;
+  const rows = await sql(query, [raceIds]);
   return rows || [];
 }
 
@@ -118,7 +167,12 @@ export async function handler(event) {
       const ids = payload
         .map((item) => item?.race?.id)
         .filter((id) => typeof id === "string");
-      const rows = await enrichRaceRows(sql, ids);
+      let rows = [];
+      try {
+        rows = await enrichRaceRows(sql, ids);
+      } catch (error) {
+        console.error("races enrich list error", error?.message || error);
+      }
       const byId = new Map(rows.map((row) => [row.id, row]));
 
       const enriched = payload.map((item) => {
@@ -133,7 +187,12 @@ export async function handler(event) {
     }
 
     if (payload?.race?.id) {
-      const rows = await enrichRaceRows(sql, [payload.race.id]);
+      let rows = [];
+      try {
+        rows = await enrichRaceRows(sql, [payload.race.id]);
+      } catch (error) {
+        console.error("races enrich detail error", error?.message || error);
+      }
       const row = rows[0];
       return json(proxied.status, {
         ...payload,
