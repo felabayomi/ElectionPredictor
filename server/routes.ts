@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.use("/api/admin", requireAdminAccess);
-  
+
   // Debug endpoint to verify middleware is running
   app.get("/debug/path", (req, res) => {
     res.json({
@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: "Middleware is running - prefix stripping should have occurred by now"
     });
   });
-  
+
   // Explicit handler for /api/election-predictor/* routes
   // This allows the backend to handle requests that come with the prefix from Netlify
   app.all("/api/election-predictor/*", (req, res, next) => {

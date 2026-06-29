@@ -23,9 +23,9 @@ app.use((req, _res, next) => {
   // Normalize those requests so existing '/api/*' routes keep working.
   const originalUrl = req.originalUrl || req.url;
   const originalPath = req.path;
-  
+
   console.log(`[MIDDLEWARE] Incoming ${req.method} ${originalUrl} (path: ${originalPath})`);
-  
+
   // Check if the request path starts with /api/election-predictor/
   if (originalPath.startsWith("/api/election-predictor/")) {
     // Strip the prefix
@@ -35,7 +35,7 @@ app.use((req, _res, next) => {
   } else {
     console.log(`[PREFIX-STRIP] SKIPPED: path does not start with /api/election-predictor/`);
   }
-  
+
   next();
 });
 
