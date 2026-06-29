@@ -42,7 +42,7 @@ export async function handler(event) {
 
             // Check subscription status
             const subscriptions = await sql(
-                "SELECT status FROM subscriptions WHERE email = $1",
+                "SELECT status FROM ep_subscriber_subscriptions WHERE email = $1",
                 [email]
             );
             console.log("Subscription lookup result:", subscriptions);
