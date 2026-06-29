@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type Request, Response, NextFunction, Router } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -16,9 +16,9 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, _res, next) => {
-  // Some platform proxies prepend '/api/election-predictor' to this app.
-  // Normalize those requests so existing '/api/*' routes keep working.
+// Handle URL rewriting for '/api/election-predictor' prefix
+const rewriteRouter = Router();
+rewriteRouter.use((req, _res, next) => {
   if (req.url.startsWith("/api/election-predictor/api/")) {
     req.url = req.url.replace("/api/election-predictor/api/", "/api/");
   } else if (req.url.startsWith("/api/election-predictor/")) {
@@ -26,6 +26,7 @@ app.use((req, _res, next) => {
   }
   next();
 });
+app.use(rewriteRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();
