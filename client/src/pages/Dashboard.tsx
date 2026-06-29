@@ -20,6 +20,23 @@ interface RaceWithPredictions {
   lastCheckedAt?: string;
 }
 
+function resolveLandingDate(race: Race, predictions: Prediction[], lastCheckedAt?: string): string {
+  const raceWithLegacyFields = race as Race & { created_at?: string };
+
+  if (race.createdAt) return race.createdAt;
+  if (raceWithLegacyFields.created_at) return raceWithLegacyFields.created_at;
+
+  const newestPredictionDate = predictions
+    .map((p) => p.lastUpdated)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+
+  if (newestPredictionDate) return newestPredictionDate;
+  if (lastCheckedAt) return lastCheckedAt;
+
+  return race.electionDate;
+}
+
 export default function Dashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
   const [searchTerm, setSearchTerm] = useState("");
@@ -252,6 +269,7 @@ export default function Dashboard() {
             {filteredRaces && filteredRaces.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {getFeaturedRaces().map(({ race, candidates, predictions, lastCheckedAt }) => {
+                  const displayDate = resolveLandingDate(race, predictions, lastCheckedAt);
                   const candidatesWithPredictions = predictions
                     .map((pred) => ({
                       prediction: pred,
@@ -270,6 +288,7 @@ export default function Dashboard() {
                     <RaceCard
                       key={race.id}
                       race={race}
+                      displayDate={displayDate}
                       leadingCandidate={leadingItem?.candidate?.name}
                       leadingProbability={leadingItem?.prediction?.winProbability}
                       leadingDataQualityScore={leadingItem?.prediction?.dataQualityScore}
