@@ -265,6 +265,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.use("/api/admin", requireAdminAccess);
+  
+  // Debug endpoint to verify middleware is running
+  app.get("/debug/path", (req, res) => {
+    res.json({
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      message: "Middleware is running - prefix stripping should have occurred by now"
+    });
+  });
 
   app.get("/api/subscription/status", async (req, res) => {
     try {
