@@ -109,6 +109,7 @@ export async function handler(event) {
             }
 
             const { displayName, bio, profileImageUrl, isPublic = true } = body;
+            const isPublicDbValue = isPublic ? 1 : 0;
 
             if (!displayName || typeof displayName !== "string") {
                 return json(400, { error: "Display name is required" });
@@ -130,7 +131,7 @@ export async function handler(event) {
                     displayName.trim(),
                     bio ? String(bio).trim() : null,
                     profileImageUrl ? String(profileImageUrl).trim() : null,
-                    isPublic,
+                    isPublicDbValue,
                 ]
             );
 
@@ -140,7 +141,7 @@ export async function handler(event) {
                 displayName: profile.display_name,
                 bio: profile.bio,
                 profileImageUrl: profile.profile_image_url,
-                isPublic: profile.is_public,
+                isPublic: Boolean(profile.is_public),
                 createdAt: profile.created_at,
                 updatedAt: profile.updated_at,
             });
@@ -168,7 +169,7 @@ export async function handler(event) {
                 displayName: profile.display_name,
                 bio: profile.bio,
                 profileImageUrl: profile.profile_image_url,
-                isPublic: profile.is_public,
+                isPublic: Boolean(profile.is_public),
                 createdAt: profile.created_at,
                 updatedAt: profile.updated_at,
             });
