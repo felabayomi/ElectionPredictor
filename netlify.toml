@@ -28,6 +28,18 @@
   force = true
 
 [[redirects]]
+  from = "/api/subscriber-profiles"
+  to = "https://felix-platform-backend.onrender.com/api/subscriber-profiles"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/subscriber-profiles/:email"
+  to = "https://felix-platform-backend.onrender.com/api/subscriber-profiles/:email"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "https://felix-platform-backend.onrender.com/api/election-predictor/:splat"
   status = 200
