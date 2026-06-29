@@ -17,20 +17,26 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false }));
 
 // Handle URL rewriting for '/api/election-predictor' prefix
+// This middleware strips the prefix before Express routing
 app.use((req, _res, next) => {
   // Some platform proxies prepend '/api/election-predictor' to this app.
   // Normalize those requests so existing '/api/*' routes keep working.
-  if (req.url.startsWith("/api/election-predictor/api/")) {
-    req.url = req.url.replace("/api/election-predictor/api/", "/api/");
-  } else if (req.url.startsWith("/api/election-predictor/")) {
-    req.url = req.url.replace("/api/election-predictor/", "/api/");
+  let originalUrl = req.originalUrl || req.url;
+  
+  if (originalUrl.startsWith("/api/election-predictor/api/")) {
+    req.url = originalUrl.replace("/api/election-predictor/api/", "/api/");
+  } else if (originalUrl.startsWith("/api/election-predictor/")) {
+    req.url = originalUrl.replace("/api/election-predictor/", "/api/");
+    // Also update the base URL for routing
+    req.baseUrl = "";
   }
   next();
 });
 
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
+  // Use the processed URL for logging
+  const path = req.url.split('?')[0];
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
