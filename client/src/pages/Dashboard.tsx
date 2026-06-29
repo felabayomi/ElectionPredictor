@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info, ExternalLink, Sparkles, Eye, Inbox } from "lucide-react";
+import { BarChart3, Info, ExternalLink, Sparkles, Eye, Inbox, Clock3, Database, ShieldCheck } from "lucide-react";
 
 interface RaceWithPredictions {
   race: Race;
@@ -89,6 +89,23 @@ export default function Dashboard() {
     local: "Local",
   };
 
+  const totalRaceCount = racesData?.length ?? 0;
+  const latestUpdate = racesData
+    ?.flatMap((item) => [
+      item.lastCheckedAt,
+      ...item.predictions.map((prediction) => prediction.lastUpdated),
+    ])
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+
+  const latestUpdateLabel = latestUpdate
+    ? new Date(latestUpdate).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+    : "Pending refresh";
+
   return (
     <div className="min-h-screen bg-slate-50/40">
       <header className="border-b bg-white sticky top-0 z-10">
@@ -128,6 +145,64 @@ export default function Dashboard() {
           <p className="text-muted-foreground">
             View comprehensive election analysis and predictions powered by AI
           </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Card className="rounded-xl border-slate-200 shadow-sm">
+              <CardContent className="py-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total races</p>
+                <p className="mt-1 text-2xl font-semibold" data-testid="stat-total-races">{totalRaceCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="rounded-xl border-slate-200 shadow-sm">
+              <CardContent className="py-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Last updated</p>
+                <p className="mt-1 flex items-center gap-2 text-sm font-medium" data-testid="stat-last-updated">
+                  <Clock3 className="h-4 w-4 text-slate-500" />
+                  {latestUpdateLabel}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="rounded-xl border-slate-200 shadow-sm">
+              <CardContent className="py-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Forecast model</p>
+                <Badge className="mt-2 inline-flex items-center gap-1" data-testid="badge-ai-forecast">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI-powered forecast
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
+          <Card className="mt-4 rounded-xl border border-slate-200 bg-white/95 shadow-sm">
+            <CardContent className="py-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">How these predictions are built</p>
+                  <div className="mt-2 grid gap-2 text-sm text-muted-foreground">
+                    <p className="inline-flex items-center gap-2">
+                      <Database className="h-4 w-4 text-slate-500" />
+                      Multi-source political and polling inputs
+                    </p>
+                    <p className="inline-flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-slate-500" />
+                      Confidence scoring with quality safeguards
+                    </p>
+                    <p className="inline-flex items-center gap-2">
+                      <Clock3 className="h-4 w-4 text-slate-500" />
+                      Continuously refreshed model outputs
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setMethodologyOpen(true)}
+                  className="sm:mt-1"
+                  data-testid="button-methodology-preview"
+                >
+                  <Info className="h-4 w-4 mr-2" />
+                  View methodology
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           <div className="mt-4">
             <Link href="/subscriber-studio">
               <Button variant="outline" data-testid="button-subscriber-studio">

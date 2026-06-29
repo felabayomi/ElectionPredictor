@@ -35,6 +35,13 @@ function formatElectionDate(value: string): string {
     return parsed.toLocaleDateString(undefined, { timeZone: "UTC" });
 }
 
+function getConfidenceDetails(score?: number): { label: string; variant: "default" | "secondary" | "destructive" } | null {
+    if (score == null) return null;
+    if (score >= 75) return { label: "High confidence", variant: "default" };
+    if (score >= 50) return { label: "Medium confidence", variant: "secondary" };
+    return { label: "Low confidence", variant: "destructive" };
+}
+
 export function RaceSummaryCard({ race, displayDate, leadingCandidate, leadingProbability, leadingDataQualityScore, candidateCount, lastCheckedAt }: RaceSummaryCardProps) {
     const racePath = `/race/${race.id}`;
     const shareUrl = getAbsoluteUrl(racePath);
@@ -45,6 +52,7 @@ export function RaceSummaryCard({ race, displayDate, leadingCandidate, leadingPr
             year: "numeric",
         })
         : null;
+    const confidenceDetails = getConfidenceDetails(leadingDataQualityScore);
 
     return (
         <>
@@ -68,7 +76,14 @@ export function RaceSummaryCard({ race, displayDate, leadingCandidate, leadingPr
                     <p className="text-sm text-muted-foreground mb-1">Current Leader</p>
                     <div className="flex items-center justify-between">
                         <p className="font-semibold truncate">{leadingCandidate}</p>
-                        <p className="font-mono font-bold text-primary">{leadingProbability.toFixed(1)}%</p>
+                        <div className="flex flex-col items-end gap-1">
+                            <p className="font-mono font-bold text-primary">{leadingProbability.toFixed(1)}%</p>
+                            {confidenceDetails && (
+                                <Badge variant={confidenceDetails.variant} className="text-[11px] leading-none">
+                                    {confidenceDetails.label}
+                                </Badge>
+                            )}
+                        </div>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
                         <div
@@ -85,18 +100,11 @@ export function RaceSummaryCard({ race, displayDate, leadingCandidate, leadingPr
                 </p>
             )}
 
-            {(leadingDataQualityScore != null || formattedLastCheckedAt) && (
+            {formattedLastCheckedAt && (
                 <div className="flex flex-wrap gap-2">
-                    {leadingDataQualityScore != null && (
-                        <Badge variant={leadingDataQualityScore >= 75 ? "default" : leadingDataQualityScore >= 50 ? "secondary" : "destructive"}>
-                            Data quality: {leadingDataQualityScore}/100
-                        </Badge>
-                    )}
-                    {formattedLastCheckedAt && (
-                        <Badge variant="outline">
-                            Last updated {formattedLastCheckedAt}
-                        </Badge>
-                    )}
+                    <Badge variant="outline">
+                        Last updated {formattedLastCheckedAt}
+                    </Badge>
                 </div>
             )}
 
