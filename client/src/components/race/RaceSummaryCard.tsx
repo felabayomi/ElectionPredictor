@@ -26,6 +26,14 @@ function getAbsoluteUrl(path: string): string {
     }
 }
 
+function formatElectionDate(value: string): string {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return value;
+    }
+    return parsed.toLocaleDateString(undefined, { timeZone: "UTC" });
+}
+
 export function RaceSummaryCard({ race, leadingCandidate, leadingProbability, leadingDataQualityScore, candidateCount, lastCheckedAt }: RaceSummaryCardProps) {
     const racePath = `/race/${race.id}`;
     const shareUrl = getAbsoluteUrl(racePath);
@@ -51,7 +59,7 @@ export function RaceSummaryCard({ race, leadingCandidate, leadingProbability, le
 
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>{new Date(race.electionDate).toLocaleDateString()}</span>
+                <span>{formatElectionDate(race.electionDate)}</span>
             </div>
 
             {leadingCandidate && leadingProbability != null && (

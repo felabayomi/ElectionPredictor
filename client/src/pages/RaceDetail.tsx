@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CandidateCard } from "@/components/CandidateCard";
 import { ShareButton } from "@/components/ShareButton";
-import type { Race, Candidate, Prediction } from "@shared/schema";
-import { ArrowLeft, Calendar, MapPin } from "lucide-react";
+import { apiRequest, queryClient, SUBSCRIBER_EMAIL_STORAGE_KEY } from "@/lib/queryClient";
+import { getErrorMessage } from "@/lib/errors";
+import { useToast } from "@/hooks/use-toast";
+import type { Race, Candidate, Prediction, SubscriberProfile } from "@shared/schema";
+import { ArrowLeft, Calendar, Mail, MapPin, RefreshCw, User } from "lucide-react";
 
 interface RaceDetailData {
   race: Race;
@@ -16,13 +19,121 @@ interface RaceDetailData {
   lastCheckedAt?: string;
 }
 
+function formatElectionDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString(undefined, { timeZone: "UTC" });
+}
+
+function formatCreatedDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+interface ReanalysisResponse {
+  mode?: string;
+  model?: string | null;
+  fallbackReason?: string | null;
+  changeSummary?: {
+    changedCandidates?: number;
+    unchangedCandidates?: number;
+    maxDelta?: number;
+  };
+}
+
+const SUPPORT_EMAIL = "ccspcivicos@gmail.com";
+
+function openSupportEmail(action: "edit" | "delete", race: Race, subscriberEmail: string) {
+  const normalizedSubscriberEmail = subscriberEmail.trim().toLowerCase();
+  const subject = `[ElectionPredictor] ${action.toUpperCase()} request for ${race.title}`;
+  const bodyLines = [
+    `Hello ElectionPredictor Support,`,
+    "",
+    `I am requesting a ${action} change for this race scenario:`,
+    `Race ID: ${race.id}`,
+    `Race title: ${race.title}`,
+    `Election date: ${race.electionDate}`,
+    "",
+    "Requested changes / reason:",
+    "- ",
+    "",
+    `Subscriber email: ${normalizedSubscriberEmail || "(not provided)"}`,
+    "",
+    "Thank you.",
+  ];
+
+  const mailtoUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+  if (typeof window !== "undefined") {
+    window.location.href = mailtoUrl;
+  }
+}
+
 export default function RaceDetail() {
+  const { toast } = useToast();
   const [, params] = useRoute("/race/:id");
   const raceId = params?.id;
+  const subscriberEmail = typeof window !== "undefined"
+    ? (window.localStorage.getItem(SUBSCRIBER_EMAIL_STORAGE_KEY) || "").trim().toLowerCase()
+    : "";
 
-  const { data, isLoading } = useQuery<RaceDetailData>({
+  const { data, isLoading, isError, error } = useQuery<RaceDetailData>({
     queryKey: ["/api/races", raceId || ""],
     enabled: !!raceId,
+  });
+
+  // Fetch subscriber profile if race has createdByEmail
+  const { data: subscriberProfile } = useQuery<SubscriberProfile | null>({
+    queryKey: ["/api/subscriber-profiles", data?.race?.createdByEmail || ""],
+    enabled: !!(data?.race?.createdByEmail),
+    queryFn: async () => {
+      if (!data?.race?.createdByEmail) return null;
+      try {
+        const response = await apiRequest<SubscriberProfile>("GET", `/api/subscriber-profiles/${encodeURIComponent(data.race.createdByEmail)}`);
+        return response || null;
+      } catch {
+        // Profile might not be public or doesn't exist - that's ok
+        return null;
+      }
+    },
+  });
+
+  const raceLookupError = getErrorMessage(error, "");
+  const raceNotFound = isError && /^404\b/.test(raceLookupError);
+
+  const reanalyzeMutation = useMutation({
+    mutationFn: async () => {
+      if (!raceId) throw new Error("Race ID is missing.");
+      if (!subscriberEmail) throw new Error("Save your subscriber email in Subscriber Studio first.");
+      return apiRequest<ReanalysisResponse>("POST", `/api/subscriber/races/${raceId}/reanalyze`, {});
+    },
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["/api/races", raceId || ""] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/races"] });
+      const moved = result.changeSummary?.changedCandidates ?? 0;
+      const unchanged = result.changeSummary?.unchangedCandidates ?? 0;
+      const maxDelta = Number(result.changeSummary?.maxDelta || 0).toFixed(1);
+      toast({
+        title: "Race reanalyzed",
+        description: `Mode: ${result.mode || "unknown"} | Changed: ${moved} | Unchanged: ${unchanged} | Max shift: ${maxDelta} pts`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Unable to reanalyze",
+        description: getErrorMessage(error, "Please check subscription status and try again."),
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -45,7 +156,7 @@ export default function RaceDetail() {
     );
   }
 
-  if (!data) {
+  if (raceNotFound || !data) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="p-12 text-center">
@@ -119,7 +230,9 @@ export default function RaceDetail() {
                   )}
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>{new Date(race.electionDate).toLocaleDateString()}</span>
+                    <span>
+                      {race.createdAt ? formatCreatedDate(race.createdAt) : formatElectionDate(race.electionDate)}
+                    </span>
                   </div>
                   {lastCheckedAt && (
                     <Badge variant="outline">Last checked {new Date(lastCheckedAt).toLocaleDateString(undefined, {
@@ -130,11 +243,58 @@ export default function RaceDetail() {
                   )}
                 </div>
               </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => reanalyzeMutation.mutate()}
+                  disabled={reanalyzeMutation.isPending}
+                  data-testid="button-subscriber-reanalyze"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${reanalyzeMutation.isPending ? "animate-spin" : ""}`} />
+                  {reanalyzeMutation.isPending ? "Reanalyzing..." : "Reanalyze"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => openSupportEmail("edit", race, subscriberEmail)}
+                  data-testid="button-request-edit"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Request Edit
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => openSupportEmail("delete", race, subscriberEmail)}
+                  data-testid="button-request-delete"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Request Delete
+                </Button>
+              </div>
             </div>
           </CardHeader>
           {race.description && (
             <CardContent>
-              <p className="text-muted-foreground">{race.description}</p>
+              <p className="text-muted-foreground mb-4">{race.description}</p>
+            </CardContent>
+          )}
+          {race.createdByEmail && (
+            <CardContent className="border-t pt-4">
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                {subscriberProfile && subscriberProfile.isPublic ? (
+                  <div>
+                    <span className="text-muted-foreground">Generated by </span>
+                    <Link href={`/subscriber-profile/${encodeURIComponent(race.createdByEmail)}`}>
+                      <a className="font-medium text-primary hover:underline">{subscriberProfile.displayName || "Anonymous Subscriber"}</a>
+                    </Link>
+                    {subscriberProfile.bio && (
+                      <p className="text-xs text-muted-foreground mt-1">{subscriberProfile.bio}</p>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Generated from Subscriber Studio</span>
+                )}
+              </div>
             </CardContent>
           )}
         </Card>

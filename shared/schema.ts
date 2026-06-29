@@ -18,6 +18,8 @@ export const races = pgTable("ep_races", {
   electionDate: text("election_date").notNull(),
   description: text("description"),
   viewCount: integer("view_count").default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdByEmail: text("created_by_email"),
 });
 
 export const candidates = pgTable("ep_candidates", {
@@ -100,6 +102,16 @@ export const subscriberSubscriptions = pgTable("ep_subscriber_subscriptions", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const subscriberProfiles = pgTable("ep_subscriber_profiles", {
+  email: text("email").primaryKey().notNull(),
+  displayName: text("display_name").notNull(),
+  bio: text("bio"),
+  profileImageUrl: text("profile_image_url"),
+  isPublic: integer("is_public").default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -157,6 +169,8 @@ export interface Race {
   electionDate: string;
   description?: string;
   viewCount?: number;
+  createdAt?: string;
+  createdByEmail?: string;
 }
 
 export interface Prediction {
@@ -241,6 +255,16 @@ export interface SubscriberSubscription {
   stripeSubscriptionId?: string;
   stripePriceId?: string;
   currentPeriodEnd?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubscriberProfile {
+  email: string;
+  displayName: string;
+  bio?: string;
+  profileImageUrl?: string;
+  isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 }

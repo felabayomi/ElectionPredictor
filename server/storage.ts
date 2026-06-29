@@ -13,6 +13,7 @@ import type {
   PredictionSource,
   InsertPredictionSource,
   SubscriberSubscription,
+  SubscriberProfile,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -57,6 +58,14 @@ export interface IStorage {
     stripePriceId?: string;
     currentPeriodEnd?: Date;
   }): Promise<SubscriberSubscription>;
+
+  getSubscriberProfile(email: string): Promise<SubscriberProfile | undefined>;
+  upsertSubscriberProfile(email: string, profile: {
+    displayName: string;
+    bio?: string;
+    profileImageUrl?: string;
+    isPublic?: boolean;
+  }): Promise<SubscriberProfile>;
 }
 
 export class DbStorage implements IStorage {
@@ -241,6 +250,8 @@ export class DbStorage implements IStorage {
       electionDate: r.electionDate,
       description: r.description || undefined,
       viewCount: r.viewCount || 0,
+      createdAt: r.createdAt ? r.createdAt.toISOString() : undefined,
+      createdByEmail: r.createdByEmail || undefined,
     }));
   }
 
@@ -259,6 +270,8 @@ export class DbStorage implements IStorage {
       electionDate: r.electionDate,
       description: r.description || undefined,
       viewCount: r.viewCount || 0,
+      createdAt: r.createdAt ? r.createdAt.toISOString() : undefined,
+      createdByEmail: r.createdByEmail || undefined,
     };
   }
 
@@ -287,6 +300,8 @@ export class DbStorage implements IStorage {
       electionDate: r.electionDate,
       description: r.description || undefined,
       viewCount: r.viewCount || 0,
+      createdAt: r.createdAt ? r.createdAt.toISOString() : undefined,
+      createdByEmail: r.createdByEmail || undefined,
     };
   }
 
@@ -308,6 +323,8 @@ export class DbStorage implements IStorage {
       electionDate: r.electionDate,
       description: r.description || undefined,
       viewCount: r.viewCount || 0,
+      createdAt: r.createdAt ? r.createdAt.toISOString() : undefined,
+      createdByEmail: r.createdByEmail || undefined,
     };
   }
 
@@ -594,6 +611,74 @@ export class DbStorage implements IStorage {
       stripeSubscriptionId: row.stripeSubscriptionId || undefined,
       stripePriceId: row.stripePriceId || undefined,
       currentPeriodEnd: row.currentPeriodEnd ? row.currentPeriodEnd.toISOString() : undefined,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  async getSubscriberProfile(email: string): Promise<SubscriberProfile | undefined> {
+    const { subscriberProfiles } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const result = await this.db
+      .select()
+      .from(subscriberProfiles)
+      .where(eq(subscriberProfiles.email, email.toLowerCase()))
+      .limit(1);
+
+    const row = result[0];
+    if (!row) return undefined;
+
+    return {
+      email: row.email,
+      displayName: row.displayName,
+      bio: row.bio || undefined,
+      profileImageUrl: row.profileImageUrl || undefined,
+      isPublic: row.isPublic === 1,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  async upsertSubscriberProfile(
+    email: string,
+    profile: {
+      displayName: string;
+      bio?: string;
+      profileImageUrl?: string;
+      isPublic?: boolean;
+    },
+  ): Promise<SubscriberProfile> {
+    const { subscriberProfiles } = await import("@shared/schema");
+
+    const result = await this.db
+      .insert(subscriberProfiles)
+      .values({
+        email: email.toLowerCase(),
+        displayName: profile.displayName,
+        bio: profile.bio,
+        profileImageUrl: profile.profileImageUrl,
+        isPublic: profile.isPublic !== false ? 1 : 0,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [subscriberProfiles.email],
+        set: {
+          displayName: profile.displayName,
+          bio: profile.bio,
+          profileImageUrl: profile.profileImageUrl,
+          isPublic: profile.isPublic !== false ? 1 : 0,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    const row = result[0];
+    return {
+      email: row.email,
+      displayName: row.displayName,
+      bio: row.bio || undefined,
+      profileImageUrl: row.profileImageUrl || undefined,
+      isPublic: row.isPublic === 1,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

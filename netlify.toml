@@ -4,6 +4,30 @@
   publish = "dist/public"
 
 [[redirects]]
+  from = "/api/subscription/*"
+  to = "/.netlify/functions/subscription/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/custom-prediction"
+  to = "/.netlify/functions/scenario/custom-prediction"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/natural-language-analysis"
+  to = "/.netlify/functions/scenario/natural-language-analysis"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/subscriber/races/*/reanalyze"
+  to = "/.netlify/functions/scenario/subscriber/races/:splat/reanalyze"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "https://felix-platform-backend.onrender.com/api/election-predictor/:splat"
   status = 200

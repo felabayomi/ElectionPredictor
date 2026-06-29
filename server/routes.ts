@@ -30,6 +30,73 @@ function inferRaceTypeFromText(input: string): RaceType {
   return "Local";
 }
 
+function isValidDateParts(year: number, month: number, day: number): boolean {
+  const value = new Date(Date.UTC(year, month - 1, day));
+  return value.getUTCFullYear() === year
+    && value.getUTCMonth() === month - 1
+    && value.getUTCDate() === day;
+}
+
+function formatIsoDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function extractExplicitDate(text: string): string | null {
+  const iso = text.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    if (isValidDateParts(year, month, day)) {
+      return formatIsoDate(year, month, day);
+    }
+  }
+
+  const us = text.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](20\d{2})\b/);
+  if (us) {
+    const month = Number(us[1]);
+    const day = Number(us[2]);
+    const year = Number(us[3]);
+    if (isValidDateParts(year, month, day)) {
+      return formatIsoDate(year, month, day);
+    }
+  }
+
+  return null;
+}
+
+function inferElectionYear(text: string): number {
+  const currentYear = new Date().getUTCFullYear();
+  const years = [...text.matchAll(/\b(20\d{2})\b/g)].map((match) => Number(match[1]));
+  const plausible = years.filter((year) => year >= currentYear - 2 && year <= currentYear + 12);
+  if (plausible.length > 0) return plausible[0];
+  return currentYear + 2;
+}
+
+function getGeneralElectionDay(year: number): string {
+  const nov1 = new Date(Date.UTC(year, 10, 1));
+  const dayOfWeek = nov1.getUTCDay();
+  const daysUntilMonday = (1 - dayOfWeek + 7) % 7;
+  const firstMonday = 1 + daysUntilMonday;
+  const electionDay = firstMonday + 1;
+  return formatIsoDate(year, 11, electionDay);
+}
+
+function inferScenarioElectionDate(input: { raceTitle: string; raceType?: RaceType; query?: string }): string {
+  const combined = `${input.raceTitle || ""} ${input.query || ""}`.trim();
+  const explicitDate = extractExplicitDate(combined);
+  if (explicitDate) return explicitDate;
+
+  const year = inferElectionYear(combined);
+  const isPrimary = /\bprimary|caucus|runoff\b/i.test(combined);
+  if (isPrimary) {
+    // Primary dates vary by state; use a pre-general placeholder within the same cycle.
+    return formatIsoDate(year, 6, 1);
+  }
+
+  return getGeneralElectionDay(year);
+}
+
 function inferFactorFromSourceType(sourceType: string): keyof PredictionFactors | undefined {
   const normalized = sourceType.toLowerCase();
   if (normalized === "polling") return "polling";
@@ -374,6 +441,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/subscriber-profiles/:email", async (req, res) => {
+    try {
+      const email = req.params.email?.toLowerCase();
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const profile = await storage.getSubscriberProfile(email);
+      if (!profile) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+
+      if (!profile.isPublic) {
+        return res.status(403).json({ error: "This profile is not public" });
+      }
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching subscriber profile:", error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  app.post("/api/subscriber-profiles", requireSubscriberAccess, async (req, res) => {
+    try {
+      const email = normalizeEmail(req.header("x-subscriber-email"));
+      if (!email) {
+        return res.status(400).json({ error: "Subscriber email is required" });
+      }
+
+      const { displayName, bio, profileImageUrl, isPublic } = req.body;
+      if (!displayName || typeof displayName !== "string") {
+        return res.status(400).json({ error: "Display name is required" });
+      }
+
+      const profile = await storage.upsertSubscriberProfile(email, {
+        displayName: displayName.trim(),
+        bio: bio ? String(bio).trim() : undefined,
+        profileImageUrl: profileImageUrl ? String(profileImageUrl).trim() : undefined,
+        isPublic: typeof isPublic === "boolean" ? isPublic : true,
+      });
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating subscriber profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
   app.get("/api/races", async (_req, res) => {
     try {
       const races = await storage.getAllRaces();
@@ -494,7 +610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/races/:id/reanalyze", async (req, res) => {
+  const reanalyzeRaceHandler = async (req: Request, res: Response) => {
     try {
       res.set("Cache-Control", "no-store");
 
@@ -579,7 +695,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error reanalyzing race:", error);
       res.status(500).json({ error: "Failed to reanalyze race" });
     }
-  });
+  };
+
+  app.post("/api/admin/races/:id/reanalyze", reanalyzeRaceHandler);
+  app.post("/api/subscriber/races/:id/reanalyze", requireSubscriberAccess, reanalyzeRaceHandler);
 
   app.post("/api/admin/races/:raceId/candidates", async (req, res) => {
     try {
@@ -860,12 +979,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await generateCustomPrediction(normalizedCandidates, raceTitle?.trim() || "Custom Race");
 
       const raceId = randomUUID();
+      const subscriberEmail = normalizeEmail(req.header("x-subscriber-email"));
       const race: Race = {
         id: raceId,
         type: raceType,
         title: (raceTitle?.trim() || "Custom Race Analysis"),
-        electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        electionDate: inferScenarioElectionDate({ raceTitle: raceTitle?.trim() || "Custom Race Analysis", raceType }),
         description: "Custom race created via manual candidate entry",
+        createdByEmail: subscriberEmail || undefined,
       };
 
       const customCandidates = normalizedCandidates.map((c: any) => ({
@@ -958,13 +1079,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       const raceId = randomUUID();
+      const subscriberEmail = normalizeEmail(req.header("x-subscriber-email"));
       const inferredRaceType = inferRaceTypeFromText(`${query} ${result.raceTitle}`);
       const race: Race = {
         id: raceId,
         type: inferredRaceType,
         title: result.raceTitle,
-        electionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        electionDate: inferScenarioElectionDate({ raceTitle: result.raceTitle, raceType: inferredRaceType, query: query.trim() }),
         description: `AI-generated analysis from query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`,
+        createdByEmail: subscriberEmail || undefined,
       };
 
       const candidates = normalizedCandidates.map((c) => ({

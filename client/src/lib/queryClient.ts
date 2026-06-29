@@ -23,8 +23,12 @@ function getAdminHeader(url: string): Record<string, string> {
 }
 
 function getSubscriberHeader(url: string): Record<string, string> {
-  const subscriberOnlyEndpoints = ["/api/custom-prediction", "/api/natural-language-analysis"];
-  if (!subscriberOnlyEndpoints.includes(url)) {
+  const subscriberOnlyPrefixes = [
+    "/api/custom-prediction",
+    "/api/natural-language-analysis",
+    "/api/subscriber/",
+  ];
+  if (!subscriberOnlyPrefixes.some((prefix) => url.startsWith(prefix))) {
     return {};
   }
 

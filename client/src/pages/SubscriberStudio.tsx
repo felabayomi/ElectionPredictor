@@ -4,11 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { apiRequest, SUBSCRIBER_EMAIL_STORAGE_KEY } from "@/lib/queryClient";
+import { Textarea } from "@/components/ui/textarea";
+import { apiRequest, SUBSCRIBER_EMAIL_STORAGE_KEY, queryClient } from "@/lib/queryClient";
 import { getErrorMessage } from "@/lib/errors";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { ArrowLeft, Loader2, ShieldCheck, TriangleAlert, Zap } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, TriangleAlert, Zap, Eye, EyeOff, User } from "lucide-react";
+import type { SubscriberProfile } from "@shared/schema";
 
 interface SubscriptionStatusResponse {
     email: string;
@@ -22,6 +24,9 @@ interface SubscriptionStatusResponse {
 export default function SubscriberStudio() {
     const { toast } = useToast();
     const [subscriberEmail, setSubscriberEmail] = useState("");
+    const [displayName, setDisplayName] = useState("");
+    const [bio, setBio] = useState("");
+    const [isPublic, setIsPublic] = useState(false);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -56,6 +61,31 @@ export default function SubscriberStudio() {
             );
         },
     });
+
+    const { data: profileData } = useQuery<SubscriberProfile | null>({
+        queryKey: ["/api/subscriber-profiles", normalizedEmail],
+        enabled: Boolean(normalizedEmail),
+        queryFn: async () => {
+            try {
+                const response = await apiRequest<SubscriberProfile>(
+                    "GET",
+                    `/api/subscriber-profiles/${encodeURIComponent(normalizedEmail)}`,
+                );
+                return response || null;
+            } catch {
+                return null;
+            }
+        },
+    });
+
+    // Load profile data into form fields when profile is fetched
+    useEffect(() => {
+        if (profileData) {
+            setDisplayName(profileData.displayName || "");
+            setBio(profileData.bio || "");
+            setIsPublic(profileData.isPublic || false);
+        }
+    }, [profileData]);
 
     const checkoutMutation = useMutation({
         mutationFn: async () => {
@@ -108,6 +138,33 @@ export default function SubscriberStudio() {
         onError: (error) => {
             toast({
                 title: "Unable to open billing portal",
+                description: getErrorMessage(error, "Please try again."),
+                variant: "destructive",
+            });
+        },
+    });
+
+    const profileUpdateMutation = useMutation({
+        mutationFn: async () => {
+            if (!normalizedEmail) throw new Error("Email not set");
+            return apiRequest<SubscriberProfile>(
+                "POST",
+                "/api/subscriber-profiles",
+                {
+                    email: normalizedEmail,
+                    displayName: displayName.trim() || undefined,
+                    bio: bio.trim() || undefined,
+                    isPublic,
+                },
+            );
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: ["/api/subscriber-profiles", normalizedEmail] });
+            toast({ title: "Profile saved", description: "Your public profile has been updated." });
+        },
+        onError: (error) => {
+            toast({
+                title: "Unable to save profile",
                 description: getErrorMessage(error, "Please try again."),
                 variant: "destructive",
             });
@@ -227,11 +284,93 @@ export default function SubscriberStudio() {
                             <div>
                                 <p className="font-semibold text-amber-900">Important before creating</p>
                                 <p className="text-sm text-amber-800 mt-1">
-                                    Subscribers can create scenarios, but only admins can edit or delete them. If you need corrections later,
-                                    contact an admin before publishing additional versions.
+                                    Subscribers can create and reanalyze scenarios. Edit and delete actions are admin-only.
+                                    To request an edit or delete, use the request buttons on any race and email support at ccspcivicos@gmail.com.
                                 </p>
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <User className="h-5 w-5" />
+                            Public Profile
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Create a public profile to be credited for your election scenarios.
+                        </p>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Display Name</label>
+                            <Input
+                                placeholder="Your name or handle"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                disabled={!normalizedEmail}
+                                data-testid="input-display-name"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Bio</label>
+                            <Textarea
+                                placeholder="Brief bio or description (optional)"
+                                value={bio}
+                                onChange={(e) => setBio(e.target.value)}
+                                disabled={!normalizedEmail}
+                                className="resize-none"
+                                rows={3}
+                                data-testid="textarea-bio"
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsPublic(!isPublic)}
+                                disabled={!normalizedEmail}
+                                className="gap-2"
+                                data-testid="button-toggle-public"
+                            >
+                                {isPublic ? (
+                                    <>
+                                        <Eye className="h-4 w-4" />
+                                        Public
+                                    </>
+                                ) : (
+                                    <>
+                                        <EyeOff className="h-4 w-4" />
+                                        Private
+                                    </>
+                                )}
+                            </Button>
+                            <p className="text-xs text-muted-foreground flex-1">
+                                {isPublic
+                                    ? "Your profile is visible when you create races"
+                                    : "Your profile is hidden from public view"}
+                            </p>
+                        </div>
+
+                        <Button
+                            onClick={() => profileUpdateMutation.mutate()}
+                            disabled={profileUpdateMutation.isPending || !normalizedEmail}
+                            className="w-full"
+                            data-testid="button-save-profile"
+                        >
+                            {profileUpdateMutation.isPending ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                "Save Profile"
+                            )}
+                        </Button>
                     </CardContent>
                 </Card>
 
