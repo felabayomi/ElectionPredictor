@@ -36,6 +36,20 @@ async function hasActiveSubscription(stripe, email) {
     }
 }
 
+async function resolveProfilesTable(sql) {
+    const candidates = ["ep_subscriber_profiles", "subscriber_profiles"];
+
+    for (const tableName of candidates) {
+        const found = await sql(
+            "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 LIMIT 1",
+            [tableName],
+        );
+        if (found.length > 0) return tableName;
+    }
+
+    throw new Error("No subscriber profiles table found");
+}
+
 export async function handler(event) {
     // Only handle POST and GET requests
     if (!["POST", "GET"].includes(event.httpMethod)) {
@@ -55,6 +69,7 @@ export async function handler(event) {
 
         const sql = neon(databaseUrl);
         const stripe = new Stripe(stripeSecretKey, { apiVersion: "2026-06-24.dahlia" });
+        const profilesTable = await resolveProfilesTable(sql);
 
         if (event.httpMethod === "POST") {
             // Extract email from headers
@@ -87,8 +102,8 @@ export async function handler(event) {
             }
 
             // Upsert profile
-            const result = await sql(
-                `INSERT INTO ep_subscriber_profiles (email, display_name, bio, profile_image_url, is_public, created_at, updated_at)
+                        const result = await sql(
+                                `INSERT INTO ${profilesTable} (email, display_name, bio, profile_image_url, is_public, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
                  ON CONFLICT (email) DO UPDATE SET
                    display_name = $2,
@@ -126,7 +141,7 @@ export async function handler(event) {
             }
 
             const result = await sql(
-                "SELECT email, display_name, bio, profile_image_url, is_public, created_at, updated_at FROM ep_subscriber_profiles WHERE email = $1",
+                `SELECT email, display_name, bio, profile_image_url, is_public, created_at, updated_at FROM ${profilesTable} WHERE email = $1`,
                 [email]
             );
 
