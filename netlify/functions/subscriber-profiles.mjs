@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { neon } from "@neondatabase/serverless";
 
 function json(statusCode, body) {
@@ -13,6 +14,28 @@ function normalizeEmail(value) {
     return value.trim().toLowerCase();
 }
 
+async function hasActiveSubscription(stripe, email) {
+    try {
+        const customers = await stripe.customers.list({ email, limit: 1 });
+        const customer = customers.data[0];
+        if (!customer) return false;
+
+        const subscriptions = await stripe.subscriptions.list({
+            customer: customer.id,
+            status: "all",
+            limit: 10,
+        });
+
+        const latest = subscriptions.data.sort((a, b) => b.created - a.created)[0];
+        if (!latest) return false;
+
+        return latest.status === "active" || latest.status === "trialing";
+    } catch (error) {
+        console.error("Error checking Stripe subscription:", error.message);
+        return false;
+    }
+}
+
 export async function handler(event) {
     // Only handle POST and GET requests
     if (!["POST", "GET"].includes(event.httpMethod)) {
@@ -21,41 +44,31 @@ export async function handler(event) {
 
     try {
         const databaseUrl = process.env.ELECTION_PREDICTOR_NEON_DATABASE_URL;
+        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+        
         if (!databaseUrl) {
-            console.error("Database URL not configured");
             return json(500, { error: "Database connection not configured" });
+        }
+        if (!stripeSecretKey) {
+            return json(500, { error: "Stripe not configured" });
         }
 
         const sql = neon(databaseUrl);
+        const stripe = new Stripe(stripeSecretKey, { apiVersion: "2026-06-24.dahlia" });
 
         if (event.httpMethod === "POST") {
             // Extract email from headers
             const email = normalizeEmail(event.headers["x-subscriber-email"]);
-            console.log("POST request - email from header:", email);
             if (!email) {
-                console.log("POST request - no email header");
-                return json(402, {
-                    error: "Active subscription required",
-                    details: "Missing subscriber email header",
-                });
+                return json(400, { error: "Subscriber email header is required" });
             }
 
-            // Check subscription status
-            const subscriptions = await sql(
-                "SELECT * FROM ep_subscriber_subscriptions WHERE email = $1",
-                [email]
-            );
-            console.log("Subscription lookup for", email, ":", subscriptions);
-            const subscription = subscriptions[0];
-            console.log("Subscription record:", subscription);
-            console.log("Subscription status:", subscription?.status);
-            const isActive = subscription && (subscription.status === "active" || subscription.status === "trialing");
+            // Check subscription status from Stripe
+            const isActive = await hasActiveSubscription(stripe, email);
 
             if (!isActive) {
-                console.log("Subscription not active for:", email, "Status was:", subscription?.status);
                 return json(402, {
                     error: "Active subscription required",
-                    debug: { email, subscriptionFound: !!subscription, status: subscription?.status },
                 });
             }
 
@@ -63,9 +76,7 @@ export async function handler(event) {
             let body;
             try {
                 body = JSON.parse(event.body || "{}");
-                console.log("Parsed body:", body);
             } catch (e) {
-                console.log("Body parse error:", e.message);
                 return json(400, { error: "Invalid JSON in request body" });
             }
 
@@ -135,7 +146,7 @@ export async function handler(event) {
             });
         }
     } catch (error) {
-        console.error("Error handling subscriber profile request:", error.message, error.stack);
-        return json(500, { error: "Internal server error", details: error.message });
+        console.error("Error handling subscriber profile request:", error.message);
+        return json(500, { error: "Internal server error" });
     }
 }
