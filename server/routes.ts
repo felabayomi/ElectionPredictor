@@ -276,6 +276,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: "Middleware is running - prefix stripping should have occurred by now"
     });
   });
+  
+  // Explicit handler for /api/election-predictor/* routes
+  // This allows the backend to handle requests that come with the prefix from Netlify
+  app.all("/api/election-predictor/*", (req, res, next) => {
+    // Remove the prefix and continue routing
+    const withoutPrefix = req.path.replace("/api/election-predictor", "");
+    req.url = withoutPrefix + (req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "");
+    req.baseUrl = withoutPrefix;
+    console.log(`[PREFIXED-ROUTE] Stripping /api/election-predictor from ${req.path} -> ${withoutPrefix}`);
+    next();
+  });
 
   app.get("/api/subscription/status", async (req, res) => {
     try {
