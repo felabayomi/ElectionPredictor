@@ -47,7 +47,20 @@ async function resolveProfilesTable(sql) {
         if (found.length > 0) return tableName;
     }
 
-    throw new Error("No subscriber profiles table found");
+    // Backfill minimal table if schema migration has not yet been applied.
+    await sql(`
+        CREATE TABLE IF NOT EXISTS ep_subscriber_profiles (
+            email text PRIMARY KEY,
+            display_name text NOT NULL,
+            bio text,
+            profile_image_url text,
+            is_public integer DEFAULT 1,
+            created_at timestamp NOT NULL DEFAULT NOW(),
+            updated_at timestamp NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    return "ep_subscriber_profiles";
 }
 
 export async function handler(event) {
