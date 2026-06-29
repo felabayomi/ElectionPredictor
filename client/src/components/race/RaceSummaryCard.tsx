@@ -64,11 +64,17 @@ export function RaceSummaryCard({ race, displayDate, leadingCandidate, leadingPr
             </div>
 
             {leadingCandidate && leadingProbability != null && (
-                <div className="pt-2 border-t">
+                <div className="pt-2 border-t border-slate-200/80 space-y-2">
                     <p className="text-sm text-muted-foreground mb-1">Current Leader</p>
                     <div className="flex items-center justify-between">
                         <p className="font-semibold truncate">{leadingCandidate}</p>
                         <p className="font-mono font-bold text-primary">{leadingProbability.toFixed(1)}%</p>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                        <div
+                            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-300"
+                            style={{ width: `${Math.max(0, Math.min(100, leadingProbability))}%` }}
+                        />
                     </div>
                 </div>
             )}

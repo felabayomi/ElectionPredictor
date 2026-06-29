@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import type { Race, Candidate, Prediction, RaceType, FeaturedMatchup } from "@shared/schema";
 import { Link } from "wouter";
-import { BarChart3, Info, ExternalLink, Sparkles, Eye } from "lucide-react";
+import { BarChart3, Info, ExternalLink, Sparkles, Eye, Inbox } from "lucide-react";
 
 interface RaceWithPredictions {
   race: Race;
@@ -143,33 +143,35 @@ export default function Dashboard() {
           onValueChange={(value) => setSelectedRaceType(raceTypeByTabValue[value] || "All")}
           className="mb-8"
         >
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-6">
-            <TabsTrigger value="all" data-testid="tab-all">
-              All Races
-            </TabsTrigger>
-            <TabsTrigger value="presidential" data-testid="tab-presidential">
-              Presidential
-            </TabsTrigger>
-            <TabsTrigger value="senate" data-testid="tab-senate">
-              Senate
-            </TabsTrigger>
-            <TabsTrigger value="house" data-testid="tab-house">
-              House
-            </TabsTrigger>
-            <TabsTrigger value="governor" data-testid="tab-governor">
-              Governor
-            </TabsTrigger>
-            <TabsTrigger value="local" data-testid="tab-local">
-              Local
-            </TabsTrigger>
-          </TabsList>
-          <div className="mt-4">
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by race title, type, or candidate name"
-              data-testid="input-search-races"
-            />
+          <div className="sticky top-[72px] z-30 rounded-xl border border-slate-200 bg-white/90 p-3 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+              <TabsTrigger value="all" data-testid="tab-all">
+                All Races
+              </TabsTrigger>
+              <TabsTrigger value="presidential" data-testid="tab-presidential">
+                Presidential
+              </TabsTrigger>
+              <TabsTrigger value="senate" data-testid="tab-senate">
+                Senate
+              </TabsTrigger>
+              <TabsTrigger value="house" data-testid="tab-house">
+                House
+              </TabsTrigger>
+              <TabsTrigger value="governor" data-testid="tab-governor">
+                Governor
+              </TabsTrigger>
+              <TabsTrigger value="local" data-testid="tab-local">
+                Local
+              </TabsTrigger>
+            </TabsList>
+            <div className="mt-3">
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by race title, type, or candidate name"
+                data-testid="input-search-races"
+              />
+            </div>
           </div>
         </Tabs>
 
@@ -223,11 +225,13 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <Card className="bg-muted/50">
-              <CardContent className="py-8 text-center">
-                <p className="text-muted-foreground">
-                  No featured matchups yet.
-                </p>
+            <Card className="border-dashed border-slate-300 bg-gradient-to-b from-slate-50 to-white">
+              <CardContent className="py-10 text-center">
+                <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                  <Inbox className="h-5 w-5" />
+                </div>
+                <p className="font-medium text-slate-800">No featured matchups yet.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Curated highlights will appear here once they are added in Admin.</p>
               </CardContent>
             </Card>
           )}
@@ -299,13 +303,14 @@ export default function Dashboard() {
                 })}
               </div>
             ) : (
-              <Card className="bg-muted/50">
-                <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground mb-2">
-                    No races found for this category.
-                  </p>
+              <Card className="border-dashed border-slate-300 bg-gradient-to-b from-slate-50 to-white">
+                <CardContent className="py-10 text-center">
+                  <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                    <Inbox className="h-5 w-5" />
+                  </div>
+                  <p className="mb-1 font-medium text-slate-800">No races found for this category.</p>
                   <p className="text-sm text-muted-foreground">
-                    Create races in <strong>Admin → Create Race</strong> or ask questions on <strong>Natural Language Analysis</strong>
+                    Create races in <strong>Admin -&gt; Create Race</strong> or ask questions in <strong>Natural Language Analysis</strong>.
                   </p>
                 </CardContent>
               </Card>

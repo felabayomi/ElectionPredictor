@@ -45,12 +45,15 @@ export function RaceCard({ race, displayDate, leadingCandidate, leadingProbabili
 
   return (
     <>
-      <Card className="hover-elevate transition-all" data-testid={`card-race-${race.id}`}>
+      <Card
+        className="h-full rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+        data-testid={`card-race-${race.id}`}
+      >
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <Badge className={`${raceTypeColors[race.type]} mb-2`}>{race.type}</Badge>
-              <CardTitle className="text-lg truncate">{race.title}</CardTitle>
+              <CardTitle className="truncate text-xl font-semibold tracking-tight">{race.title}</CardTitle>
             </div>
             <AdminRaceActions
               raceId={race.id}
@@ -68,7 +71,7 @@ export function RaceCard({ race, displayDate, leadingCandidate, leadingProbabili
             />
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <RaceSummaryCard
             race={race}
             displayDate={displayDate}
