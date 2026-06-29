@@ -22,7 +22,7 @@ function getAdminHeader(url: string): Record<string, string> {
   return key ? { "x-admin-key": key } : {};
 }
 
-function getSubscriberHeader(url: string): Record<string, string> {
+function getSubscriberHeader(url: string, data?: unknown): Record<string, string> {
   const subscriberOnlyPrefixes = [
     "/api/custom-prediction",
     "/api/natural-language-analysis",
@@ -37,7 +37,19 @@ function getSubscriberHeader(url: string): Record<string, string> {
     return {};
   }
 
-  const email = (window.localStorage.getItem(SUBSCRIBER_EMAIL_STORAGE_KEY) || "").trim().toLowerCase();
+  // Prefer explicit email from payload when present (e.g. profile save),
+  // then fall back to saved subscriber email.
+  const payloadEmail =
+    data &&
+    typeof data === "object" &&
+    "email" in data &&
+    typeof (data as { email?: unknown }).email === "string"
+      ? (data as { email: string }).email
+      : "";
+
+  const email = (payloadEmail || window.localStorage.getItem(SUBSCRIBER_EMAIL_STORAGE_KEY) || "")
+    .trim()
+    .toLowerCase();
   return email ? { "x-subscriber-email": email } : {};
 }
 
@@ -47,7 +59,7 @@ export async function apiRequest<T = unknown>(
   data?: unknown | undefined,
 ): Promise<T> {
   const adminHeader = getAdminHeader(url);
-  const subscriberHeader = getSubscriberHeader(url);
+  const subscriberHeader = getSubscriberHeader(url, data);
   const res = await fetch(url, {
     method,
     headers: {
