@@ -327,7 +327,7 @@ export default function RaceDetail() {
               </div>
             </div>
           </CardHeader>
-          {race.description && (
+          {race.description && !/generated\s+from\s+subscriber\s+studio/i.test(race.description) && (
             <CardContent>
               <p className="text-muted-foreground mb-4">{race.description}</p>
             </CardContent>
