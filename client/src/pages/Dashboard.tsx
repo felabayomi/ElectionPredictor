@@ -116,8 +116,8 @@ export default function Dashboard() {
                 <BarChart3 className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">ElectionPredict Public View</h1>
-                <p className="text-sm text-muted-foreground">Read-only election analysis for viewers</p>
+                <h1 className="text-xl font-bold sm:text-2xl">ElectionPredict Public View</h1>
+                <p className="text-xs text-muted-foreground sm:text-sm">Read-only election analysis for viewers</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -131,8 +131,8 @@ export default function Dashboard() {
                 onClick={() => setMethodologyOpen(true)}
                 data-testid="button-methodology"
               >
-                <Info className="h-4 w-4 mr-2" />
-                Methodology
+                <Info className="h-4 w-4 sm:mr-2" />
+                <span className="sr-only sm:not-sr-only">Methodology</span>
               </Button>
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <div className="space-y-6 mb-10">
-          <h2 className="text-4xl font-bold mb-2">Election Predictions</h2>
+          <h2 className="mb-1 text-3xl font-bold sm:mb-2 sm:text-4xl">Election Predictions</h2>
           <p className="text-muted-foreground">
             View comprehensive election analysis and predictions powered by AI
           </p>
