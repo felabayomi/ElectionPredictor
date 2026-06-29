@@ -67,7 +67,7 @@ export async function handler(event) {
 
             // Upsert profile
             const result = await sql(
-                `INSERT INTO subscriber_profiles (email, display_name, bio, profile_image_url, is_public, created_at, updated_at)
+                `INSERT INTO ep_subscriber_profiles (email, display_name, bio, profile_image_url, is_public, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
                  ON CONFLICT (email) DO UPDATE SET
                    display_name = $2,
@@ -105,7 +105,7 @@ export async function handler(event) {
             }
 
             const result = await sql(
-                "SELECT email, display_name, bio, profile_image_url, is_public, created_at, updated_at FROM subscriber_profiles WHERE email = $1",
+                "SELECT email, display_name, bio, profile_image_url, is_public, created_at, updated_at FROM ep_subscriber_profiles WHERE email = $1",
                 [email]
             );
 
