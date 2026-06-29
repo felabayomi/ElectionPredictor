@@ -3,4 +3,5 @@
 /api/natural-language-analysis  /.netlify/functions/scenario/natural-language-analysis  200
 /api/subscriber/races/*/reanalyze  /.netlify/functions/scenario/subscriber/races/:splat/reanalyze  200
 /api/subscriber-profiles  /.netlify/functions/subscriber-profiles  200
+/api/*  https://felix-platform-backend.onrender.com/api/election-predictor/:splat  200
 /*  /index.html  200
