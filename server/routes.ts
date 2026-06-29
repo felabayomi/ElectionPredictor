@@ -265,12 +265,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.use("/api/admin", requireAdminAccess);
-  
-  // Forward prefixed routes to non-prefixed handlers
-  app.all("/api/election-predictor/*", (req, res, next) => {
-    req.url = req.url.replace("/api/election-predictor", "") || "/";
-    next();
-  });
 
   app.get("/api/subscription/status", async (req, res) => {
     try {

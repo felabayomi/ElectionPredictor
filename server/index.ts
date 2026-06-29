@@ -23,10 +23,12 @@ app.use((req, _res, next) => {
   // Normalize those requests so existing '/api/*' routes keep working.
   const originalUrl = req.originalUrl || req.url;
   
-  if (originalUrl.includes("/api/election-predictor/")) {
+  // Check if the request path starts with /api/election-predictor/
+  if (req.path.startsWith("/api/election-predictor/")) {
     // Strip the prefix
-    const newUrl = originalUrl.replace("/api/election-predictor/", "/");
-    req.url = newUrl;
+    const newPath = req.path.slice("/api/election-predictor".length); // Keep the leading /
+    req.url = newPath + (req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "");
+    console.log(`[PREFIX-STRIP] ${originalUrl} -> ${req.url}`);
   }
   next();
 });
