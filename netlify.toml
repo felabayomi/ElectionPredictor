@@ -22,6 +22,18 @@
   force = true
 
 [[redirects]]
+  from = "/api/races"
+  to = "/.netlify/functions/races"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/races/*"
+  to = "/.netlify/functions/races/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/subscriber/races/*/reanalyze"
   to = "/.netlify/functions/scenario/subscriber/races/:splat/reanalyze"
   status = 200
