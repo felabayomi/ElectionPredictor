@@ -22,6 +22,7 @@ export async function handler(event) {
     try {
         const databaseUrl = process.env.ELECTION_PREDICTOR_NEON_DATABASE_URL;
         if (!databaseUrl) {
+            console.error("Database URL not configured");
             return json(500, { error: "Database connection not configured" });
         }
 
@@ -30,7 +31,9 @@ export async function handler(event) {
         if (event.httpMethod === "POST") {
             // Extract email from headers
             const email = normalizeEmail(event.headers["x-subscriber-email"]);
+            console.log("POST request - email from header:", email);
             if (!email) {
+                console.log("POST request - no email header");
                 return json(402, {
                     error: "Active subscription required",
                     details: "Missing subscriber email header",
@@ -42,10 +45,12 @@ export async function handler(event) {
                 "SELECT status FROM subscriptions WHERE email = $1",
                 [email]
             );
+            console.log("Subscription lookup result:", subscriptions);
             const subscription = subscriptions[0];
             const isActive = subscription && (subscription.status === "active" || subscription.status === "trialing");
 
             if (!isActive) {
+                console.log("Subscription not active for:", email);
                 return json(402, {
                     error: "Active subscription required",
                 });
@@ -55,7 +60,9 @@ export async function handler(event) {
             let body;
             try {
                 body = JSON.parse(event.body || "{}");
-            } catch {
+                console.log("Parsed body:", body);
+            } catch (e) {
+                console.log("Body parse error:", e.message);
                 return json(400, { error: "Invalid JSON in request body" });
             }
 
@@ -125,7 +132,7 @@ export async function handler(event) {
             });
         }
     } catch (error) {
-        console.error("Error handling subscriber profile request:", error);
-        return json(500, { error: "Internal server error" });
+        console.error("Error handling subscriber profile request:", error.message, error.stack);
+        return json(500, { error: "Internal server error", details: error.message });
     }
 }
