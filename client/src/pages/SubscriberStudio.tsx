@@ -69,7 +69,7 @@ export default function SubscriberStudio() {
             try {
                 const response = await apiRequest<SubscriberProfile>(
                     "GET",
-                    `/api/subscriber-profiles/${encodeURIComponent(normalizedEmail)}`,
+                    `/api/subscriber-profiles?email=${encodeURIComponent(normalizedEmail)}`,
                 );
                 return response || null;
             } catch {

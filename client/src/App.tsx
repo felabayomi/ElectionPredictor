@@ -13,6 +13,7 @@ const SubscriberStudio = lazy(() => import("@/pages/SubscriberStudio"));
 const PresidentialPrimaryCompare = lazy(() => import("@/pages/PresidentialPrimaryCompare"));
 const NYSenateCompare = lazy(() => import("@/pages/NYSenateCompare"));
 const RaceDetail = lazy(() => import("@/pages/RaceDetail"));
+const SubscriberProfilePage = lazy(() => import("@/pages/SubscriberProfile"));
 const CustomPrediction = lazy(() => import("@/pages/CustomPrediction"));
 const NaturalLanguageAnalysis = lazy(() => import("@/pages/NaturalLanguageAnalysis"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/custom-prediction" component={CustomPrediction} />
       <Route path="/natural-language" component={NaturalLanguageAnalysis} />
       <Route path="/race/:id" component={RaceDetail} />
+      <Route path="/subscriber-profile/:email" component={SubscriberProfilePage} />
       <Route component={NotFound} />
     </Switch>
   );
