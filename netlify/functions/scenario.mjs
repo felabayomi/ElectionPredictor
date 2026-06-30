@@ -2,6 +2,33 @@ const BACKEND_BASE = process.env.ELECTION_PREDICTOR_BACKEND_BASE_URL || "https:/
 const MIN_SCENARIO_CANDIDATES = 2;
 const MAX_SCENARIO_CANDIDATES = 12;
 
+// Lightweight affiliation hints for common U.S. political figures used in scenario prompts.
+const KNOWN_PARTY_BY_NAME = {
+    "alexandria ocasio-cortez": "Democratic",
+    "letitia james": "Democratic",
+    "pat ryan": "Democratic",
+    "ritchie torres": "Democratic",
+    "tom suozzi": "Democratic",
+    "chuck schumer": "Democratic",
+    "dan crenshaw": "Republican",
+    "greg abbott": "Republican",
+    "john cornyn": "Republican",
+    "ted cruz": "Republican",
+    "j.d. vance": "Republican",
+    "jd vance": "Republican",
+    "marco rubio": "Republican",
+    "ron desantis": "Republican",
+    "ron de santis": "Republican",
+    "nikki haley": "Republican",
+    "tim scott": "Republican",
+    "glenn youngkin": "Republican",
+    "kamala harris": "Democratic",
+    "gavin newsom": "Democratic",
+    "gretchen whitmer": "Democratic",
+    "josh shapiro": "Democratic",
+    "michelle obama": "Democratic",
+};
+
 function json(statusCode, body) {
     return {
         statusCode,
@@ -121,6 +148,19 @@ function isLikelyOfficeDescriptor(name) {
     return false;
 }
 
+function normalizeNameKey(name) {
+    return String(name || "")
+        .toLowerCase()
+        .replace(/\./g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function inferPartyFromName(name) {
+    const key = normalizeNameKey(name);
+    return KNOWN_PARTY_BY_NAME[key] || null;
+}
+
 const NAME_TOKEN_PATTERN = "[A-Z][A-Za-z'.-]+";
 const FULL_NAME_PATTERN = `${NAME_TOKEN_PATTERN}(?:\\s+${NAME_TOKEN_PATTERN}){1,3}`;
 const fullNameRegex = new RegExp(`^${FULL_NAME_PATTERN}$`);
@@ -206,6 +246,51 @@ function inferPrimaryPartyFromQuery(query) {
     if (/\brepublican\b|\bgop\b/.test(text)) return "Republican";
     if (/\bdemocratic\b|\bdemocrat\b/.test(text)) return "Democratic";
     return null;
+}
+
+function inferSeatContextParty(query) {
+    const text = String(query || "");
+    const incumbentMatch = text.match(/if\s+([A-Z][A-Za-z'.-]+(?:\s+[A-Z][A-Za-z'.-]+){1,3})\s+retires/i);
+    if (!incumbentMatch?.[1]) return null;
+    return inferPartyFromName(incumbentMatch[1]);
+}
+
+function resolveCandidateParty(name, explicitPrimaryParty, seatContextParty) {
+    if (explicitPrimaryParty) return explicitPrimaryParty;
+    return inferPartyFromName(name) || seatContextParty;
+}
+
+function assignPartiesToCandidates(names, query) {
+    const explicitPrimaryParty = inferPrimaryPartyFromQuery(query);
+    const seatContextParty = inferSeatContextParty(query);
+
+    let resolved = names.map((name, index) => ({
+        name,
+        party: resolveCandidateParty(name, explicitPrimaryParty, seatContextParty) || null,
+        index,
+    }));
+
+    // If some names are unknown, use majority among known parties as the fallback.
+    const counts = resolved.reduce((acc, item) => {
+        if (!item.party) return acc;
+        acc[item.party] = (acc[item.party] || 0) + 1;
+        return acc;
+    }, {});
+
+    const majorityParty = counts.Democratic === counts.Republican
+        ? null
+        : (counts.Democratic || 0) > (counts.Republican || 0)
+            ? "Democratic"
+            : (counts.Republican || 0) > 0
+                ? "Republican"
+                : null;
+
+    resolved = resolved.map((item) => ({
+        ...item,
+        party: item.party || majorityParty || assignParty(item.index),
+    }));
+
+    return resolved.map(({ name, party }) => ({ name, party }));
 }
 
 async function requestBackend(path, method, payload, headers = {}) {
@@ -357,11 +442,7 @@ export async function handler(event) {
 
             const raceType = inferRaceTypeFromText(query);
             const raceTitle = `${raceType} Scenario: ${query.slice(0, 90)}`;
-            const inferredPrimaryParty = inferPrimaryPartyFromQuery(query);
-            const candidates = names.map((name, index) => ({
-                name,
-                party: inferredPrimaryParty || assignParty(index),
-            }));
+            const candidates = assignPartiesToCandidates(names, query);
 
             const subscriberEmail = event.headers["x-subscriber-email"] || "";
             const scenario = await createScenario({ raceTitle, raceType, candidates, query, subscriberEmail });
