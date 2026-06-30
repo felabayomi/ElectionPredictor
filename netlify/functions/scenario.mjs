@@ -102,6 +102,11 @@ function unique(values) {
     return out;
 }
 
+const NAME_TOKEN_PATTERN = "[A-Z][A-Za-z'.-]+";
+const FULL_NAME_PATTERN = `${NAME_TOKEN_PATTERN}(?:\\s+${NAME_TOKEN_PATTERN}){1,3}`;
+const fullNameRegex = new RegExp(`^${FULL_NAME_PATTERN}$`);
+const fullNameGlobalRegex = new RegExp(`\\b(${FULL_NAME_PATTERN})\\b`, "g");
+
 function extractCandidatesFromQuery(query) {
     const text = String(query || "");
     const stopwordFirstNames = new Set([
@@ -127,25 +132,25 @@ function extractCandidatesFromQuery(query) {
     const bulletMatches = text
         .split(/\r?\n/)
         .map((line) => line.trim().replace(/^[\-\*\u2022]\s*/, ""))
-        .filter((line) => line && /^[A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){0,3}$/.test(line));
+        .filter((line) => line && fullNameRegex.test(line));
 
     if (bulletMatches.length >= 2) return unique(bulletMatches);
 
     const candidatesLabelMatch = text.match(/candidates\s*:\s*([^\n]+)/i);
     if (candidatesLabelMatch?.[1]) {
         const byComma = candidatesLabelMatch[1].split(",").map((s) => s.trim());
-        const parsed = byComma.filter((name) => /^[A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){0,3}$/.test(name));
+        const parsed = byComma.filter((name) => fullNameRegex.test(name));
         if (parsed.length >= 2) return unique(parsed);
     }
 
-    const betweenMatch = text.match(/between\s+([A-Z][a-z.'-]+(?:\s+[A-Z][a-z.'-]+){0,3})\s+and\s+([A-Z][a-z.'-]+(?:\s+[A-Z][a-z.'-]+){0,3})/i);
+    const betweenMatch = text.match(new RegExp(`between\\s+(${FULL_NAME_PATTERN})\\s+and\\s+(${FULL_NAME_PATTERN})`, "i"));
     const betweenNames = betweenMatch ? [betweenMatch[1], betweenMatch[2]] : [];
 
     const byComma = text
         .split(",")
         .flatMap((part) => {
             const matches = [];
-            const regex = /\b([A-Z][a-z.'-]+(?:\s+[A-Z][a-z.'-]+){1,3})\b/g;
+            const regex = new RegExp(`\\b(${FULL_NAME_PATTERN})\\b`, "g");
             let match;
             while ((match = regex.exec(part)) !== null) {
                 const candidate = match[1].trim();
@@ -157,7 +162,7 @@ function extractCandidatesFromQuery(query) {
         });
 
     const embeddedMatches = [];
-    const regex = /\b([A-Z][a-z.'-]+(?:\s+[A-Z][a-z.'-]+){1,3})\b/g;
+    const regex = fullNameGlobalRegex;
     let match;
     while ((match = regex.exec(text)) !== null) {
         const candidate = match[1].trim();
@@ -173,6 +178,13 @@ function assignParty(index) {
     if (index === 0) return "Democratic";
     if (index === 1) return "Republican";
     return "Independent";
+}
+
+function inferPrimaryPartyFromQuery(query) {
+    const text = String(query || "").toLowerCase();
+    if (/\brepublican\b|\bgop\b/.test(text)) return "Republican";
+    if (/\bdemocratic\b|\bdemocrat\b/.test(text)) return "Democratic";
+    return null;
 }
 
 async function requestBackend(path, method, payload, headers = {}) {
@@ -314,9 +326,10 @@ export async function handler(event) {
 
             const raceType = inferRaceTypeFromText(query);
             const raceTitle = `${raceType} Scenario: ${query.slice(0, 90)}`;
+            const inferredPrimaryParty = inferPrimaryPartyFromQuery(query);
             const candidates = names.slice(0, 8).map((name, index) => ({
                 name,
-                party: assignParty(index),
+                party: inferredPrimaryParty || assignParty(index),
             }));
 
             const subscriberEmail = event.headers["x-subscriber-email"] || "";
