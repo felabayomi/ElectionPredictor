@@ -25,10 +25,34 @@ interface RaceWithData {
   race: Race;
   candidates: Candidate[];
   predictions: Prediction[];
+  lastCheckedAt?: string;
 }
 
 function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function resolveCreatedDate(race: Race, predictions: Prediction[] = [], lastCheckedAt?: string): string {
+  const raceWithLegacyFields = race as Race & { created_at?: string };
+
+  if (race.createdAt) return race.createdAt;
+  if (raceWithLegacyFields.created_at) return raceWithLegacyFields.created_at;
+
+  const newestPredictionDate = predictions
+    .map((p) => p.lastUpdated)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+
+  if (newestPredictionDate) return newestPredictionDate;
+  if (lastCheckedAt) return lastCheckedAt;
+
+  return race.electionDate;
+}
+
+function resolveSortTimestamp(race: Race, predictions: Prediction[] = [], lastCheckedAt?: string): number {
+  const value = resolveCreatedDate(race, predictions, lastCheckedAt);
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
 export default function Admin() {
@@ -75,6 +99,13 @@ export default function Admin() {
   const { data: raceCandidates = [], isLoading: loadingCandidates } = useQuery<Candidate[]>({
     queryKey: ["/api/admin/races", managingRaceId, "candidates"],
     enabled: !!managingRaceId,
+  });
+
+  const sortedRacesData = [...racesData].sort((a, b) => {
+    const bTimestamp = resolveSortTimestamp(b.race, b.predictions, b.lastCheckedAt);
+    const aTimestamp = resolveSortTimestamp(a.race, a.predictions, a.lastCheckedAt);
+    if (bTimestamp !== aTimestamp) return bTimestamp - aTimestamp;
+    return (a.race.title || "").localeCompare(b.race.title || "");
   });
 
   const createMutation = useMutation({
@@ -351,7 +382,7 @@ export default function Admin() {
                         )}
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(suggestion.race.electionDate).toLocaleDateString()}
+                          {new Date(resolveCreatedDate(suggestion.race, suggestion.predictions)).toLocaleDateString()}
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2 italic">{suggestion.reason}</p>
@@ -376,7 +407,7 @@ export default function Admin() {
             <p className="text-muted-foreground">No races yet. Use Natural Language Analysis to create races.</p>
           ) : (
             <div className="space-y-3">
-              {racesData.map(({ race, candidates, predictions }) => (
+              {sortedRacesData.map(({ race, candidates, predictions, lastCheckedAt }) => (
                 <div
                   key={race.id}
                   data-testid={`race-${race.id}`}
@@ -393,6 +424,10 @@ export default function Admin() {
                     <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
                       <span>{candidates.length} candidate{candidates.length !== 1 ? "s" : ""}</span>
                       <span>{predictions.length} prediction{predictions.length !== 1 ? "s" : ""}</span>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(resolveCreatedDate(race, predictions, lastCheckedAt)).toLocaleDateString()}
+                      </div>
                       {race.viewCount && race.viewCount > 0 && (
                         <div className="flex items-center gap-1">
                           <Eye className="w-3 h-3" />
