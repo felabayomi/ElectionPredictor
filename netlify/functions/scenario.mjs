@@ -104,6 +104,23 @@ function unique(values) {
     return out;
 }
 
+function isLikelyOfficeDescriptor(name) {
+    const value = String(name || "").trim();
+    if (!value) return false;
+
+    // These terms indicate office/race descriptors, not person names.
+    if (/(?:\bSenate\b|\bHouse\b|\bGovernor\b|\bPresidential\b|\bPrimary\b|\bGeneral\b|\bRace\b)/i.test(value)) {
+        return true;
+    }
+
+    // A broad state/political adjective prefix followed by office words is almost certainly not a candidate.
+    if (/^(?:[A-Z][a-z]+\s+)*(?:Democratic|Republican)\s+(?:Senate|House|Governor|Presidential)\b/.test(value)) {
+        return true;
+    }
+
+    return false;
+}
+
 const NAME_TOKEN_PATTERN = "[A-Z][A-Za-z'.-]+";
 const FULL_NAME_PATTERN = `${NAME_TOKEN_PATTERN}(?:\\s+${NAME_TOKEN_PATTERN}){1,3}`;
 const fullNameRegex = new RegExp(`^${FULL_NAME_PATTERN}$`);
@@ -134,14 +151,14 @@ function extractCandidatesFromQuery(query) {
     const bulletMatches = text
         .split(/\r?\n/)
         .map((line) => line.trim().replace(/^[\-\*\u2022]\s*/, ""))
-        .filter((line) => line && fullNameRegex.test(line));
+        .filter((line) => line && fullNameRegex.test(line) && !isLikelyOfficeDescriptor(line));
 
     if (bulletMatches.length >= 2) return unique(bulletMatches);
 
     const candidatesLabelMatch = text.match(/candidates\s*:\s*([^\n]+)/i);
     if (candidatesLabelMatch?.[1]) {
         const byComma = candidatesLabelMatch[1].split(",").map((s) => s.trim());
-        const parsed = byComma.filter((name) => fullNameRegex.test(name));
+        const parsed = byComma.filter((name) => fullNameRegex.test(name) && !isLikelyOfficeDescriptor(name));
         if (parsed.length >= 2) return unique(parsed);
     }
 
@@ -158,6 +175,7 @@ function extractCandidatesFromQuery(query) {
                 const candidate = match[1].trim();
                 const firstName = candidate.split(/\s+/)[0];
                 if (stopwordFirstNames.has(firstName)) continue;
+                if (isLikelyOfficeDescriptor(candidate)) continue;
                 matches.push(candidate);
             }
             return matches;
@@ -170,6 +188,7 @@ function extractCandidatesFromQuery(query) {
         const candidate = match[1].trim();
         const firstName = candidate.split(/\s+/)[0];
         if (stopwordFirstNames.has(firstName)) continue;
+        if (isLikelyOfficeDescriptor(candidate)) continue;
         embeddedMatches.push(candidate);
     }
 
