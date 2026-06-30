@@ -56,6 +56,29 @@ interface ReanalysisResponse {
   sourceFreshness?: ReanalysisAuditData["sourceFreshness"];
 }
 
+function resolveAdminDisplayDate(race: Race, predictions: Prediction[], lastCheckedAt?: string): string {
+  const raceWithLegacyFields = race as Race & { created_at?: string };
+
+  if (race.createdAt) return race.createdAt;
+  if (raceWithLegacyFields.created_at) return raceWithLegacyFields.created_at;
+
+  const newestPredictionDate = predictions
+    .map((p) => p.lastUpdated)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+
+  if (newestPredictionDate) return newestPredictionDate;
+  if (lastCheckedAt) return lastCheckedAt;
+
+  return race.electionDate;
+}
+
+function resolveAdminSortTimestamp(race: Race, predictions: Prediction[], lastCheckedAt?: string): number {
+  const displayDate = resolveAdminDisplayDate(race, predictions, lastCheckedAt);
+  const timestamp = new Date(displayDate).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
@@ -275,7 +298,12 @@ export default function AdminDashboard() {
 
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
-    return filteredRaces;
+    return [...filteredRaces].sort((a, b) => {
+      const aTimestamp = resolveAdminSortTimestamp(a.race, a.predictions, a.lastCheckedAt);
+      const bTimestamp = resolveAdminSortTimestamp(b.race, b.predictions, b.lastCheckedAt);
+      if (bTimestamp !== aTimestamp) return bTimestamp - aTimestamp;
+      return (a.race.title || "").localeCompare(b.race.title || "");
+    });
   };
 
   return (
@@ -482,6 +510,7 @@ export default function AdminDashboard() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {getFeaturedRaces().map(({ race, candidates, predictions, lastCheckedAt }) => {
+                const displayDate = resolveAdminDisplayDate(race, predictions, lastCheckedAt);
                 const candidatesWithPredictions = predictions
                   .map((pred) => ({
                     prediction: pred,
@@ -500,6 +529,7 @@ export default function AdminDashboard() {
                   <RaceCard
                     key={race.id}
                     race={race}
+                    displayDate={displayDate}
                     leadingCandidate={leadingItem?.candidate?.name}
                     leadingProbability={leadingItem?.prediction?.winProbability}
                     leadingDataQualityScore={leadingItem?.prediction?.dataQualityScore}
