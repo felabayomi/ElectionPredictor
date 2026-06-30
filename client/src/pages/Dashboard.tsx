@@ -37,6 +37,23 @@ function resolveLandingDate(race: Race, predictions: Prediction[], lastCheckedAt
   return race.electionDate;
 }
 
+function resolveRaceSortTimestamp(race: Race, predictions: Prediction[], lastCheckedAt?: string): number {
+  const raceWithLegacyFields = race as Race & { created_at?: string };
+  const candidates = [
+    race.createdAt,
+    raceWithLegacyFields.created_at,
+    ...predictions.map((p) => p.lastUpdated),
+    lastCheckedAt,
+  ].filter((value): value is string => Boolean(value));
+
+  for (const value of candidates) {
+    const timestamp = new Date(value).getTime();
+    if (!Number.isNaN(timestamp)) return timestamp;
+  }
+
+  return 0;
+}
+
 export default function Dashboard() {
   const [selectedRaceType, setSelectedRaceType] = useState<RaceType | "All">("All");
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,7 +85,12 @@ export default function Dashboard() {
 
   const getFeaturedRaces = () => {
     if (!filteredRaces) return [];
-    return filteredRaces;
+    return [...filteredRaces].sort((a, b) => {
+      const aTimestamp = resolveRaceSortTimestamp(a.race, a.predictions, a.lastCheckedAt);
+      const bTimestamp = resolveRaceSortTimestamp(b.race, b.predictions, b.lastCheckedAt);
+      if (bTimestamp !== aTimestamp) return bTimestamp - aTimestamp;
+      return (a.race.title || "").localeCompare(b.race.title || "");
+    });
   };
 
   const tabValueByRaceType: Record<RaceType | "All", string> = {
