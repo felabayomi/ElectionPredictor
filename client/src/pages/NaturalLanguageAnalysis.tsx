@@ -140,7 +140,7 @@ export default function NaturalLanguageAnalysis() {
                 data-testid="textarea-query"
               />
               <p className="text-xs text-muted-foreground">
-                Tip: Include candidate names in your question for more accurate analysis
+                Tip: Include 2 to 12 candidate names in your question for best analysis quality
               </p>
             </div>
 

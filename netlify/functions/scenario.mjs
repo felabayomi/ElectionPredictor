@@ -1,4 +1,6 @@
 const BACKEND_BASE = process.env.ELECTION_PREDICTOR_BACKEND_BASE_URL || "https://felix-platform-backend.onrender.com/api/election-predictor";
+const MIN_SCENARIO_CANDIDATES = 2;
+const MAX_SCENARIO_CANDIDATES = 12;
 
 function json(statusCode, body) {
     return {
@@ -290,8 +292,12 @@ export async function handler(event) {
                         : assignParty(index),
                 }));
 
-            if (normalized.length < 2) {
-                return json(400, { error: "Please enter at least 2 candidates" });
+            if (normalized.length < MIN_SCENARIO_CANDIDATES) {
+                return json(400, { error: `Please enter at least ${MIN_SCENARIO_CANDIDATES} candidates.` });
+            }
+
+            if (normalized.length > MAX_SCENARIO_CANDIDATES) {
+                return json(400, { error: `Please limit to ${MAX_SCENARIO_CANDIDATES} candidates or fewer per scenario.` });
             }
 
             const raceType = ["Presidential", "Senate", "House", "Governor", "Local"].includes(payload.raceType)
@@ -318,16 +324,22 @@ export async function handler(event) {
             }
 
             const names = extractCandidatesFromQuery(query);
-            if (names.length < 2) {
+            if (names.length < MIN_SCENARIO_CANDIDATES) {
                 return json(400, {
-                    error: "FACT_FINDING_QUESTION: Please include at least two candidate names to generate a scenario.",
+                    error: `FACT_FINDING_QUESTION: Please include at least ${MIN_SCENARIO_CANDIDATES} candidate names to generate a scenario.`,
+                });
+            }
+
+            if (names.length > MAX_SCENARIO_CANDIDATES) {
+                return json(400, {
+                    error: `Please limit your scenario to ${MAX_SCENARIO_CANDIDATES} candidates or fewer. We detected ${names.length}.`,
                 });
             }
 
             const raceType = inferRaceTypeFromText(query);
             const raceTitle = `${raceType} Scenario: ${query.slice(0, 90)}`;
             const inferredPrimaryParty = inferPrimaryPartyFromQuery(query);
-            const candidates = names.slice(0, 8).map((name, index) => ({
+            const candidates = names.map((name, index) => ({
                 name,
                 party: inferredPrimaryParty || assignParty(index),
             }));
