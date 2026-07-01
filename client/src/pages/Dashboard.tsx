@@ -252,6 +252,32 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <CardContent className="py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Full Civic Campaign Toolkit</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Move between Civicos Pro, ElectionPredictor, and Campaign Signal Studio.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
+                    <a href="https://civicos.pro" target="_blank" rel="noreferrer">
+                      Civicos Pro
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
+                    <a href="https://campaignsignal.us/" target="_blank" rel="noreferrer">
+                      Campaign Signal Studio
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs
